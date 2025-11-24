@@ -4,6 +4,9 @@ Rust client for Polymarket APIs.
 
 More information about this crate can be found in the [crate documentation](https://docs.rs/polyte/).
 
+> [!WARNING]
+> This is currently work-in-progress so the API may change and some features may be missing
+
 ## Installation
 
 ```
