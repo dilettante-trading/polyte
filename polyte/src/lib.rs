@@ -62,7 +62,6 @@
 use polyte_clob::{Chain, Clob, Credentials};
 #[cfg(all(feature = "clob", feature = "gamma"))]
 use polyte_gamma::Gamma;
-use thiserror::Error;
 
 #[cfg(feature = "clob")]
 pub use polyte_clob;
@@ -82,7 +81,7 @@ pub mod prelude {
 }
 
 /// Error types for Polymarket operations
-#[derive(Error, Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum PolymarketError {
     /// CLOB API error
     #[cfg(feature = "clob")]
@@ -101,6 +100,7 @@ pub enum PolymarketError {
 
 /// Unified Polymarket client
 #[cfg(all(feature = "clob", feature = "gamma"))]
+#[derive(Clone)]
 pub struct Polymarket {
     /// CLOB (trading) API client
     pub clob: Clob,
