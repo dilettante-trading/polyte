@@ -18,6 +18,8 @@ enum Commands {
         #[command(subcommand)]
         command: commands::GammaCommand,
     },
+    /// Generate shell completions
+    Completions(commands::CompletionsCommand),
 }
 
 #[tokio::main]
@@ -28,6 +30,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Gamma { command } => command.run().await?,
+        Commands::Completions(cmd) => cmd.run::<Cli>(),
     }
 
     Ok(())

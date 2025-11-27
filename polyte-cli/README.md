@@ -45,6 +45,15 @@ Display all supported features
 polyte gamma --help
 ```
 
+## Shell completions
+
+For convenience, shell completions can be generated too
+
+```
+# Generate completions for Fish shell
+polyte completions fish
+```
+
 ## License
 
 This project is licensed under the [MIT License](https://github.com/roushou/polyte/blob/main/LICENSE).
