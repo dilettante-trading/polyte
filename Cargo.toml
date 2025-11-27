@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "polyte",
+  "polyte-cli",
   "polyte-clob",
   "polyte-core",
   "polyte-gamma",

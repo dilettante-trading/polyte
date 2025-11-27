@@ -1,13 +1,13 @@
 # Polyte
 
-Rust client for Polymarket APIs.
-
-More information about this crate can be found in the [crate documentation](https://docs.rs/polyte/).
+Rust SDK toolkit for Polymarket APIs. It includes library crates for use in your projects and a standalone CLI.
 
 > [!WARNING]
 > This is currently work-in-progress so the API may change and some features may be missing
 
 ## Installation
+
+### Libraries
 
 ```
 cargo add polyte
@@ -22,6 +22,14 @@ cargo add polyte --no-default-features --features gamma
 # Trading only
 cargo add polyte --no-default-features --features clob
 ```
+
+### CLI
+
+```
+cargo install polyte-cli
+```
+
+See more [here](./polyte-cli/README.md).
 
 ## Usage
 

@@ -1,0 +1,23 @@
+[package]
+name = "polyte-cli"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "CLI tool for querying Polymarket Gamma API"
+keywords = ["polymarket", "prediction-markets", "cli", "gamma"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "polyte"
+path = "src/main.rs"
+
+[dependencies]
+polyte-gamma = { path = "../polyte-gamma", version = "0.1.3" }
+tokio = { workspace = true }
+clap = { version = "4.5", features = ["derive"] }
+serde_json = { workspace = true }
+eyre = "0.6"
+color-eyre = "0.6"
