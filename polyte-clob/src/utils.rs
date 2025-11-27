@@ -93,8 +93,7 @@ mod tests {
 
     #[test]
     fn test_calculate_order_amounts_tenth_tick_size() {
-        let (maker, taker) =
-            calculate_order_amounts(0.5, 50.0, OrderSide::Buy, TickSize::Tenth);
+        let (maker, taker) = calculate_order_amounts(0.5, 50.0, OrderSide::Buy, TickSize::Tenth);
 
         // price=0.5, size=50 => cost=25.0
         // BUY: maker = cost (2500), taker = shares (5000)
@@ -191,10 +190,16 @@ mod tests {
         let timestamp = current_timestamp();
 
         // Should be after 2024-01-01 (1704067200)
-        assert!(timestamp > 1704067200, "Timestamp should be after 2024-01-01");
+        assert!(
+            timestamp > 1704067200,
+            "Timestamp should be after 2024-01-01"
+        );
 
         // Should be before 2100-01-01 (4102444800)
-        assert!(timestamp < 4102444800, "Timestamp should be before 2100-01-01");
+        assert!(
+            timestamp < 4102444800,
+            "Timestamp should be before 2100-01-01"
+        );
     }
 
     #[test]
@@ -239,13 +244,11 @@ mod tests {
     fn test_round_to_decimals() {
         // Test through calculate_order_amounts behavior
         // 0.555 with Hundredth should round to 0.56
-        let (maker, _) =
-            calculate_order_amounts(0.555, 100.0, OrderSide::Buy, TickSize::Hundredth);
+        let (maker, _) = calculate_order_amounts(0.555, 100.0, OrderSide::Buy, TickSize::Hundredth);
         assert_eq!(maker, "5600"); // 0.56 * 100 = 56.0 => 5600
 
         // 0.554 with Hundredth should round to 0.55
-        let (maker, _) =
-            calculate_order_amounts(0.554, 100.0, OrderSide::Buy, TickSize::Hundredth);
+        let (maker, _) = calculate_order_amounts(0.554, 100.0, OrderSide::Buy, TickSize::Hundredth);
         assert_eq!(maker, "5500"); // 0.55 * 100 = 55.0 => 5500
     }
 
