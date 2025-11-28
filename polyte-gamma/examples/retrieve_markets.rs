@@ -22,32 +22,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example 2: Get a specific market by ID (if we have one)
     if let Some(first_market) = markets.first() {
-        if let Some(condition_id) = &first_market.condition_id {
-            println!("2. Getting market details for: {}", first_market.question);
-            println!("   Market ID: {}", condition_id);
+        let condition_id = &first_market.condition_id;
+        println!("2. Getting market details for: {}", first_market.question);
+        println!("   Market ID: {}", condition_id);
 
-            match gamma.markets().get(condition_id).send().await {
-                Ok(market) => {
-                    println!("   Question: {}", market.question);
-                    println!("   Description: {}", market.description);
-                    println!("   Active: {}", market.active);
-                    println!("   Closed: {}", market.closed);
-                    println!("   Volume: {:?}", market.volume);
-                    println!("   Liquidity: {:?}", market.liquidity);
-                    println!("   Tokens:");
-                    for token in &market.tokens {
-                        println!("     - {}: {}", token.outcome, token.token_id);
-                        if let Some(price) = &token.price {
-                            println!("       Price: {}", price);
-                        }
+        match gamma.markets().get(condition_id).send().await {
+            Ok(market) => {
+                println!("   Question: {}", market.question);
+                println!("   Description: {}", market.description);
+                println!("   Active: {:?}", market.active);
+                println!("   Closed: {:?}", market.closed);
+                println!("   Volume: {:?}", market.volume);
+                println!("   Liquidity: {:?}", market.liquidity);
+                println!("   Tokens:");
+                for token in &market.tokens {
+                    println!("     - {}: {}", token.outcome, token.token_id);
+                    if let Some(price) = &token.price {
+                        println!("       Price: {}", price);
                     }
                 }
-                Err(e) => {
-                    eprintln!("   Error: {}", e);
-                }
             }
-            println!();
+            Err(e) => {
+                eprintln!("   Error: {}", e);
+            }
         }
+        println!();
     }
 
     // Example 3: List active markets only
@@ -84,8 +83,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .filter_map(|m| m.liquidity.as_ref().and_then(|l| l.parse::<f64>().ok()))
         .sum();
-    let active_count = markets.iter().filter(|m| m.active).count();
-    let closed_count = markets.iter().filter(|m| m.closed).count();
+    let active_count = markets.iter().filter(|m| m.active == Some(true)).count();
+    let closed_count = markets.iter().filter(|m| m.closed == Some(true)).count();
 
     println!("   Total volume: ${:.2}", total_volume);
     println!("   Total liquidity: ${:.2}", total_liquidity);

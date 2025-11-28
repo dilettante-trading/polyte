@@ -58,7 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(market) = markets_response
         .data
         .iter()
-        .find(|m| m.enable_order_book && m.active)
+        .find(|m| m.enable_order_book == Some(true) && m.active)
     {
         if let Some(token) = market.tokens.first() {
             if let Some(token_id) = &token.token_id {

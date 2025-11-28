@@ -7,63 +7,151 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct Market {
-    #[serde(default)]
-    pub condition_id: Option<String>,
-    #[serde(default)]
+    pub id: String,
+    pub condition_id: String,
     pub question_id: Option<String>,
+    pub slug: Option<String>,
     #[serde(default)]
     pub tokens: Vec<MarketToken>,
-    #[serde(default)]
     pub rewards: Option<HashMap<String, serde_json::Value>>,
     pub minimum_order_size: Option<String>,
     pub minimum_tick_size: Option<String>,
     pub description: String,
-    #[serde(default)]
     pub category: Option<String>,
     pub end_date_iso: Option<String>,
-    #[serde(default)]
-    pub game_start_time: Option<String>,
+    pub start_date_iso: Option<String>,
     pub question: String,
-    #[serde(default)]
-    pub market_slug: Option<String>,
     pub min_incentive_size: Option<String>,
     pub max_incentive_spread: Option<String>,
-    pub active: bool,
-    pub closed: bool,
-    pub archived: bool,
-    pub new: Option<bool>,
-    pub featured: Option<bool>,
     pub submitted_by: Option<String>,
-    pub volume: Option<String>,
-    #[serde(default)]
     pub volume_24hr: Option<f64>,
+    pub volume_1wk: Option<f64>,
+    pub volume_1mo: Option<f64>,
+    pub volume_1yr: Option<f64>,
     pub liquidity: Option<String>,
     #[serde(default)]
-    pub competitive: Option<f64>,
-    #[serde(default)]
     pub tags: Vec<Tag>,
-    #[serde(default)]
-    pub group_item_threshold: Option<serde_json::Value>,
-    #[serde(default)]
-    pub group_item_title: Option<String>,
-    #[serde(default)]
-    pub neg_risk: bool,
-    #[serde(default)]
+    pub neg_risk: Option<bool>,
     pub neg_risk_market_id: Option<String>,
-    #[serde(default)]
     pub neg_risk_request_id: Option<String>,
-    #[serde(default)]
-    pub enable_order_book: bool,
-    #[serde(default)]
-    pub order_price_min_tick_size: Option<serde_json::Value>,
-    #[serde(default)]
-    pub order_min_size: Option<serde_json::Value>,
-    #[serde(default)]
-    pub seconds_delay: Option<i32>,
-    #[serde(default)]
+    pub comment_count: Option<u32>,
+    pub twitter_card_image: Option<String>,
+    pub resolution_source: Option<String>,
+    pub amm_type: Option<String>,
+    pub sponsor_name: Option<String>,
+    pub sponsor_image: Option<String>,
+    pub x_axis_value: Option<String>,
+    pub y_axis_value: Option<String>,
+    pub denomation_token: Option<String>,
+    pub fee: Option<String>,
+    pub image: Option<String>,
     pub icon: Option<String>,
-    #[serde(default)]
-    pub comment_count: u32,
+    pub lower_bound: Option<String>,
+    pub upper_bound: Option<String>,
+    pub outcomes: Option<String>,
+    pub outcome_prices: Option<String>,
+    pub volume: Option<String>,
+    pub active: Option<bool>,
+    pub market_type: Option<String>,
+    pub format_type: Option<String>,
+    pub lower_bound_date: Option<String>,
+    pub upper_bound_date: Option<String>,
+    pub closed: Option<bool>,
+    pub market_maker_address: String,
+    pub created_by: Option<i64>,
+    pub updated_by: Option<i64>,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
+    pub closed_time: Option<String>,
+    pub wide_format: Option<bool>,
+    pub new: Option<bool>,
+    pub mailchimp_tag: Option<String>,
+    pub featured: Option<bool>,
+    pub archived: Option<bool>,
+    pub resolved_by: Option<String>,
+    pub restricted: Option<bool>,
+    pub market_group: Option<i64>,
+    pub group_item_title: Option<String>,
+    pub group_item_threshold: Option<String>,
+    pub uma_end_date: Option<String>,
+    pub uma_resolution_status: Option<String>,
+    pub uma_end_date_iso: Option<String>,
+    pub uma_resolution_statuses: Option<String>,
+    pub enable_order_book: Option<bool>,
+    pub order_price_min_tick_size: Option<i64>,
+    pub order_min_size: Option<i64>,
+    pub curation_order: Option<i64>,
+    pub volume_num: Option<f64>,
+    pub liquidity_num: Option<f64>,
+    pub has_review_dates: Option<bool>,
+    pub ready_for_cron: Option<bool>,
+    pub comments_enabled: Option<bool>,
+    pub game_start_time: Option<String>,
+    pub seconds_delay: Option<i64>,
+    pub clob_token_ids: Option<String>,
+    pub disqus_thread: Option<String>,
+    pub short_outcomes: Option<String>,
+    pub team_aid: Option<String>,
+    pub team_bid: Option<String>,
+    pub uma_bond: Option<String>,
+    pub uma_reward: Option<String>,
+    pub fpmm_live: Option<bool>,
+    pub volume_24hr_amm: Option<f64>,
+    pub volume_1wk_amm: Option<f64>,
+    pub volume_1mo_amm: Option<f64>,
+    pub volume_1yr_amm: Option<f64>,
+    pub volume_24hr_clob: Option<f64>,
+    pub volume_1wk_clob: Option<f64>,
+    pub volume_1mo_clob: Option<f64>,
+    pub volume_1yr_clob: Option<f64>,
+    pub volume_amm: Option<f64>,
+    pub volume_clob: Option<f64>,
+    pub liquidity_amm: Option<f64>,
+    pub liquidity_clob: Option<f64>,
+    pub maker_base_fee: Option<i64>,
+    pub taker_base_fee: Option<i64>,
+    pub custom_liveness: Option<i64>,
+    pub accepting_orders: Option<bool>,
+    pub notifications_enabled: Option<bool>,
+    pub score: Option<i64>,
+    pub creator: Option<String>,
+    pub ready: Option<bool>,
+    pub funded: Option<bool>,
+    pub past_slugs: Option<String>,
+    pub ready_timestamp: Option<String>,
+    pub funded_timestamp: Option<String>,
+    pub accepting_orders_timestamp: Option<String>,
+    pub competitive: Option<f64>,
+    pub rewards_min_size: Option<f64>,
+    pub rewards_max_spreads: Option<f64>,
+    pub spread: Option<f64>,
+    pub automatically_resolved: Option<bool>,
+    pub automatically_active: Option<bool>,
+    pub one_day_price_change: Option<f64>,
+    pub one_hour_price_change: Option<f64>,
+    pub one_week_price_change: Option<f64>,
+    pub one_month_price_change: Option<f64>,
+    pub one_year_price_change: Option<f64>,
+    pub last_trade_price: Option<f64>,
+    pub best_bid: Option<f64>,
+    pub best_ask: Option<f64>,
+    pub clear_book_on_start: Option<bool>,
+    pub chart_color: Option<String>,
+    pub series_color: Option<String>,
+    pub show_gmp_series: Option<bool>,
+    pub show_gmp_outcome: Option<bool>,
+    pub manual_activation: Option<bool>,
+    pub neg_risk_other: Option<bool>,
+    pub game_id: Option<String>,
+    pub group_item_range: Option<String>,
+    pub sports_market_type: Option<String>,
+    pub line: Option<f64>,
+    pub pending_deployment: Option<bool>,
+    pub deploying: Option<bool>,
+    pub deploying_timestamp: Option<String>,
+    pub schedule_deployment_timestamp: Option<String>,
+    pub rfq_enabled: Option<bool>,
+    pub event_start_time: Option<String>,
 }
 
 /// Market token (outcome)
@@ -72,10 +160,8 @@ pub struct Market {
 pub struct MarketToken {
     pub token_id: String,
     pub outcome: String,
-    #[serde(default)]
     pub price: Option<String>,
-    #[serde(default)]
-    pub winner: bool,
+    pub winner: Option<bool>,
 }
 
 /// Event containing multiple markets
@@ -85,13 +171,10 @@ pub struct Event {
     pub id: String,
     pub slug: String,
     pub title: String,
-    #[serde(default)]
     pub description: Option<String>,
     pub start_date_iso: Option<String>,
     pub end_date_iso: Option<String>,
-    #[serde(default)]
     pub image: Option<String>,
-    #[serde(default)]
     pub icon: Option<String>,
     pub active: bool,
     pub closed: bool,
@@ -105,9 +188,7 @@ pub struct Event {
     pub comment_count: Option<u32>,
     #[serde(default)]
     pub markets: Vec<Market>,
-    #[serde(default)]
-    pub cyom: bool,
-    #[serde(default)]
+    pub cyom: Option<bool>,
     pub competitive: Option<f64>,
     #[serde(default)]
     pub tags: Vec<Tag>,
@@ -131,11 +212,8 @@ pub struct SeriesData {
     pub id: String,
     pub slug: String,
     pub title: String,
-    #[serde(default)]
     pub description: Option<String>,
-    #[serde(default)]
     pub image: Option<String>,
-    #[serde(default)]
     pub icon: Option<String>,
     pub active: bool,
     pub closed: bool,
@@ -146,7 +224,6 @@ pub struct SeriesData {
     pub liquidity: Option<f64>,
     #[serde(default)]
     pub events: Vec<Event>,
-    #[serde(default)]
     pub competitive: Option<String>,
 }
 
@@ -173,17 +250,11 @@ pub struct Tag {
 pub struct SportMetadata {
     pub id: u64,
     pub sport: String,
-    #[serde(default)]
     pub image: Option<String>,
-    #[serde(default)]
     pub resolution: Option<String>,
-    #[serde(default)]
     pub ordering: Option<String>,
-    #[serde(default)]
     pub tags: Option<String>,
-    #[serde(default)]
     pub series: Option<String>,
-    #[serde(default)]
     pub created_at: Option<String>,
 }
 
@@ -192,21 +263,13 @@ pub struct SportMetadata {
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct Team {
     pub id: i64,
-    #[serde(default)]
     pub name: Option<String>,
-    #[serde(default)]
     pub league: Option<String>,
-    #[serde(default)]
     pub record: Option<String>,
-    #[serde(default)]
     pub logo: Option<String>,
-    #[serde(default)]
     pub abbreviation: Option<String>,
-    #[serde(default)]
     pub alias: Option<String>,
-    #[serde(default)]
     pub created_at: Option<DateTime<Utc>>,
-    #[serde(default)]
     pub updated_at: Option<DateTime<Utc>>,
 }
 
@@ -218,16 +281,11 @@ pub struct Comment {
     pub body: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    #[serde(default)]
     pub deleted_at: Option<DateTime<Utc>>,
     pub user: CommentUser,
-    #[serde(default)]
     pub market_id: Option<String>,
-    #[serde(default)]
     pub event_id: Option<String>,
-    #[serde(default)]
     pub series_id: Option<String>,
-    #[serde(default)]
     pub parent_id: Option<String>,
     #[serde(default)]
     pub reactions: Vec<CommentReaction>,
@@ -244,7 +302,6 @@ pub struct Comment {
 pub struct CommentUser {
     pub id: String,
     pub name: String,
-    #[serde(default)]
     pub avatar: Option<String>,
 }
 
@@ -269,7 +326,6 @@ pub struct CommentPosition {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct Cursor {
-    #[serde(default)]
     pub next_cursor: Option<String>,
 }
 
@@ -278,6 +334,5 @@ pub struct Cursor {
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct PaginatedResponse<T> {
     pub data: Vec<T>,
-    #[serde(default)]
     pub next_cursor: Option<String>,
 }

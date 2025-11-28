@@ -82,7 +82,6 @@ pub struct Market {
     pub condition_id: String,
     pub question_id: String,
     pub tokens: Vec<MarketToken>,
-    #[serde(default)]
     pub rewards: Option<serde_json::Value>,
     pub minimum_order_size: f64,
     pub minimum_tick_size: f64,
@@ -93,31 +92,24 @@ pub struct Market {
     pub active: bool,
     pub closed: bool,
     pub archived: bool,
-    #[serde(default)]
-    pub neg_risk: bool,
-    #[serde(default)]
+    pub neg_risk: Option<bool>,
     pub neg_risk_market_id: Option<String>,
-    #[serde(default)]
-    pub enable_order_book: bool,
+    pub enable_order_book: Option<bool>,
 }
 
 /// Markets list response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListMarketsResponse {
     pub data: Vec<Market>,
-    #[serde(default)]
     pub next_cursor: Option<String>,
 }
 
 /// Market token (outcome)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketToken {
-    #[serde(default)]
     pub token_id: Option<String>,
     pub outcome: String,
-    #[serde(default)]
     pub price: Option<f64>,
-    #[serde(default)]
     pub winner: Option<bool>,
 }
 

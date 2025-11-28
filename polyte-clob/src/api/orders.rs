@@ -99,7 +99,6 @@ pub struct OpenOrder {
     pub order: SignedOrder,
     pub status: String,
     pub created_at: String,
-    #[serde(default)]
     pub updated_at: Option<String>,
 }
 
@@ -108,9 +107,7 @@ pub struct OpenOrder {
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct OrderResponse {
     pub success: bool,
-    #[serde(default)]
     pub error_msg: Option<String>,
-    #[serde(default)]
     pub order_id: Option<String>,
     #[serde(default)]
     pub transaction_hashes: Vec<String>,
@@ -121,6 +118,5 @@ pub struct OrderResponse {
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct CancelResponse {
     pub success: bool,
-    #[serde(default)]
     pub error_msg: Option<String>,
 }
