@@ -1,4 +1,4 @@
-use clap::Subcommand;
+use clap::{ArgAction, Subcommand};
 use color_eyre::eyre::Result;
 use polyte_gamma::Gamma;
 
@@ -13,11 +13,17 @@ pub enum SeriesCommand {
         #[arg(short, long)]
         offset: Option<u32>,
         /// Sort in ascending order
-        #[arg(long)]
-        ascending: Option<bool>,
-        /// Filter by closed status
-        #[arg(short, long)]
-        closed: Option<bool>,
+        #[arg(long, action = ArgAction::SetTrue, conflicts_with = "desc")]
+        asc: bool,
+        /// Sort in descending order
+        #[arg(long, action = ArgAction::SetTrue)]
+        desc: bool,
+        /// Show only closed series
+        #[arg(long, action = ArgAction::SetTrue, conflicts_with = "open")]
+        closed: bool,
+        /// Show only open series
+        #[arg(long, action = ArgAction::SetTrue)]
+        open: bool,
     },
     /// Get a series by ID
     Get {
@@ -32,8 +38,10 @@ impl SeriesCommand {
             Self::List {
                 limit,
                 offset,
-                ascending,
+                asc,
+                desc,
                 closed,
+                open,
             } => {
                 let mut request = gamma.series().list();
 
@@ -43,11 +51,15 @@ impl SeriesCommand {
                 if let Some(o) = offset {
                     request = request.offset(o);
                 }
-                if let Some(asc) = ascending {
-                    request = request.ascending(asc);
+                if asc {
+                    request = request.ascending(true);
+                } else if desc {
+                    request = request.ascending(false);
                 }
-                if let Some(c) = closed {
-                    request = request.closed(c);
+                if closed {
+                    request = request.closed(true);
+                } else if open {
+                    request = request.closed(false);
                 }
 
                 let series = request.send().await?;

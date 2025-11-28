@@ -1,4 +1,4 @@
-use clap::Subcommand;
+use clap::{ArgAction, Subcommand};
 use color_eyre::eyre::Result;
 use polyte_gamma::Gamma;
 
@@ -12,18 +12,30 @@ pub enum EventsCommand {
         /// Pagination offset
         #[arg(short, long)]
         offset: Option<u32>,
-        /// Filter by active status
-        #[arg(short, long)]
-        active: Option<bool>,
-        /// Filter by closed status
-        #[arg(short, long)]
-        closed: Option<bool>,
-        /// Filter by archived status
-        #[arg(long)]
-        archived: Option<bool>,
-        /// Filter by featured status
-        #[arg(short, long)]
-        featured: Option<bool>,
+        /// Show only active events
+        #[arg(long, action = ArgAction::SetTrue, conflicts_with = "inactive")]
+        active: bool,
+        /// Show only inactive events
+        #[arg(long, action = ArgAction::SetTrue)]
+        inactive: bool,
+        /// Show only closed events
+        #[arg(long, action = ArgAction::SetTrue, conflicts_with = "open")]
+        closed: bool,
+        /// Show only open events
+        #[arg(long, action = ArgAction::SetTrue)]
+        open: bool,
+        /// Show only archived events
+        #[arg(long, action = ArgAction::SetTrue, conflicts_with = "not_archived")]
+        archived: bool,
+        /// Exclude archived events
+        #[arg(long, action = ArgAction::SetTrue)]
+        not_archived: bool,
+        /// Show only featured events
+        #[arg(long, action = ArgAction::SetTrue, conflicts_with = "not_featured")]
+        featured: bool,
+        /// Exclude featured events
+        #[arg(long, action = ArgAction::SetTrue)]
+        not_featured: bool,
         /// Minimum liquidity
         #[arg(long)]
         liquidity_min: Option<f64>,
@@ -37,8 +49,11 @@ pub enum EventsCommand {
         #[arg(long)]
         volume_max: Option<f64>,
         /// Sort in ascending order
-        #[arg(long)]
-        ascending: Option<bool>,
+        #[arg(long, action = ArgAction::SetTrue, conflicts_with = "desc")]
+        asc: bool,
+        /// Sort in descending order
+        #[arg(long, action = ArgAction::SetTrue)]
+        desc: bool,
         /// Order by field
         #[arg(long)]
         order: Option<String>,
@@ -67,14 +82,19 @@ impl EventsCommand {
                 limit,
                 offset,
                 active,
+                inactive,
                 closed,
+                open,
                 archived,
+                not_archived,
                 featured,
+                not_featured,
                 liquidity_min,
                 liquidity_max,
                 volume_min,
                 volume_max,
-                ascending,
+                asc,
+                desc,
                 order,
             } => {
                 let mut request = gamma.events().list();
@@ -85,17 +105,25 @@ impl EventsCommand {
                 if let Some(o) = offset {
                     request = request.offset(o);
                 }
-                if let Some(a) = active {
-                    request = request.active(a);
+                if active {
+                    request = request.active(true);
+                } else if inactive {
+                    request = request.active(false);
                 }
-                if let Some(c) = closed {
-                    request = request.closed(c);
+                if closed {
+                    request = request.closed(true);
+                } else if open {
+                    request = request.closed(false);
                 }
-                if let Some(a) = archived {
-                    request = request.archived(a);
+                if archived {
+                    request = request.archived(true);
+                } else if not_archived {
+                    request = request.archived(false);
                 }
-                if let Some(f) = featured {
-                    request = request.featured(f);
+                if featured {
+                    request = request.featured(true);
+                } else if not_featured {
+                    request = request.featured(false);
                 }
                 if let Some(min) = liquidity_min {
                     request = request.liquidity_min(min);
@@ -109,8 +137,10 @@ impl EventsCommand {
                 if let Some(max) = volume_max {
                     request = request.volume_max(max);
                 }
-                if let Some(asc) = ascending {
-                    request = request.ascending(asc);
+                if asc {
+                    request = request.ascending(true);
+                } else if desc {
+                    request = request.ascending(false);
                 }
                 if let Some(ord) = order {
                     request = request.order(ord);
