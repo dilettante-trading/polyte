@@ -90,7 +90,7 @@ impl CancelOrderRequest {
 
 /// Open order from API
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct OpenOrder {
     pub id: String,
     pub market: String,
@@ -105,7 +105,7 @@ pub struct OpenOrder {
 
 /// Response from posting an order
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct OrderResponse {
     pub success: bool,
     #[serde(default)]
@@ -118,7 +118,7 @@ pub struct OrderResponse {
 
 /// Response from canceling an order
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct CancelResponse {
     pub success: bool,
     #[serde(default)]

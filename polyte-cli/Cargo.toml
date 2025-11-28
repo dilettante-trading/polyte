@@ -15,7 +15,7 @@ name = "polyte"
 path = "src/main.rs"
 
 [dependencies]
-polyte-gamma = { path = "../polyte-gamma", version = "0.1.3" }
+polyte-gamma = { path = "../polyte-gamma", version = "0.1.4" }
 tokio = { workspace = true }
 clap = { version = "4.5", features = ["derive"] }
 clap_complete = "4.5"

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Market data from Gamma API
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct Market {
     #[serde(default)]
     pub condition_id: Option<String>,
@@ -34,14 +35,15 @@ pub struct Market {
     pub featured: Option<bool>,
     pub submitted_by: Option<String>,
     pub volume: Option<String>,
-    pub volume_24hr: Option<String>,
+    #[serde(default)]
+    pub volume_24hr: Option<f64>,
     pub liquidity: Option<String>,
     #[serde(default)]
     pub competitive: Option<f64>,
     #[serde(default)]
     pub tags: Vec<Tag>,
     #[serde(default)]
-    pub group_item_threshold: Option<i32>,
+    pub group_item_threshold: Option<serde_json::Value>,
     #[serde(default)]
     pub group_item_title: Option<String>,
     #[serde(default)]
@@ -53,9 +55,9 @@ pub struct Market {
     #[serde(default)]
     pub enable_order_book: bool,
     #[serde(default)]
-    pub order_price_min_tick_size: Option<String>,
+    pub order_price_min_tick_size: Option<serde_json::Value>,
     #[serde(default)]
-    pub order_min_size: Option<String>,
+    pub order_min_size: Option<serde_json::Value>,
     #[serde(default)]
     pub seconds_delay: Option<i32>,
     #[serde(default)]
@@ -66,6 +68,7 @@ pub struct Market {
 
 /// Market token (outcome)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct MarketToken {
     pub token_id: String,
     pub outcome: String,
@@ -77,6 +80,7 @@ pub struct MarketToken {
 
 /// Event containing multiple markets
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct Event {
     pub id: String,
     pub slug: String,
@@ -113,6 +117,7 @@ pub struct Event {
 
 /// Series information within an event
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct SeriesInfo {
     pub id: String,
     pub slug: String,
@@ -121,6 +126,7 @@ pub struct SeriesInfo {
 
 /// Series data (tournament/season grouping)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct SeriesData {
     pub id: String,
     pub slug: String,
@@ -146,7 +152,7 @@ pub struct SeriesData {
 
 /// Tag for categorizing markets/events
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct Tag {
     pub id: String,
     pub slug: String,
@@ -163,6 +169,7 @@ pub struct Tag {
 
 /// Sports metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct SportMetadata {
     pub id: u64,
     pub sport: String,
@@ -176,12 +183,13 @@ pub struct SportMetadata {
     pub tags: Option<String>,
     #[serde(default)]
     pub series: Option<String>,
-    #[serde(default, rename = "createdAt")]
+    #[serde(default)]
     pub created_at: Option<String>,
 }
 
 /// Sports team
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct Team {
     pub id: i64,
     #[serde(default)]
@@ -196,14 +204,15 @@ pub struct Team {
     pub abbreviation: Option<String>,
     #[serde(default)]
     pub alias: Option<String>,
-    #[serde(default, rename = "createdAt")]
+    #[serde(default)]
     pub created_at: Option<DateTime<Utc>>,
-    #[serde(default, rename = "updatedAt")]
+    #[serde(default)]
     pub updated_at: Option<DateTime<Utc>>,
 }
 
 /// Comment on a market/event/series
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct Comment {
     pub id: String,
     pub body: String,
@@ -231,6 +240,7 @@ pub struct Comment {
 
 /// User who created a comment
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct CommentUser {
     pub id: String,
     pub name: String,
@@ -240,6 +250,7 @@ pub struct CommentUser {
 
 /// Reaction to a comment
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct CommentReaction {
     pub user_id: String,
     pub reaction_type: String,
@@ -247,6 +258,7 @@ pub struct CommentReaction {
 
 /// Position held by comment author
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct CommentPosition {
     pub token_id: String,
     pub outcome: String,
@@ -255,6 +267,7 @@ pub struct CommentPosition {
 
 /// Pagination cursor for list operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct Cursor {
     #[serde(default)]
     pub next_cursor: Option<String>,
@@ -262,6 +275,7 @@ pub struct Cursor {
 
 /// Paginated response wrapper
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct PaginatedResponse<T> {
     pub data: Vec<T>,
     #[serde(default)]

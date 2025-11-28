@@ -126,7 +126,7 @@ impl From<f64> for TickSize {
 
 /// Unsigned order
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct Order {
     pub salt: String,
     pub maker: Address,
@@ -144,7 +144,7 @@ pub struct Order {
 
 /// Signed order
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all(deserialize = "camelCase"))]
 pub struct SignedOrder {
     #[serde(flatten)]
     pub order: Order,
