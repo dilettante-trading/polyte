@@ -17,8 +17,8 @@ gamma = ["dep:polyte-gamma"]
 full = ["clob", "gamma"]
 
 [dependencies]
-polyte-gamma = { path = "../polyte-gamma", version = "0.1.5", optional = true }
-polyte-clob = { path = "../polyte-clob", version = "0.1.5", optional = true }
+polyte-gamma = { path = "../polyte-gamma", version = "0.1.6", optional = true }
+polyte-clob = { path = "../polyte-clob", version = "0.1.6", optional = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

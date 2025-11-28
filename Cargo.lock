@@ -2617,7 +2617,7 @@ dependencies = [
 
 [[package]]
 name = "polyte"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "polyte-clob",
  "polyte-gamma",
@@ -2627,7 +2627,7 @@ dependencies = [
 
 [[package]]
 name = "polyte-cli"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "clap",
  "clap_complete",
@@ -2640,7 +2640,7 @@ dependencies = [
 
 [[package]]
 name = "polyte-clob"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "alloy",
  "anyhow",
@@ -2664,7 +2664,7 @@ dependencies = [
 
 [[package]]
 name = "polyte-core"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "reqwest",
  "serde",
@@ -2675,7 +2675,7 @@ dependencies = [
 
 [[package]]
 name = "polyte-gamma"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "chrono",
  "polyte-core",

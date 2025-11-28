@@ -22,7 +22,7 @@ alloy = { version = "1.1.2", features = [
     "signer-local",
     "signers",
 ] }
-polyte-core = { path = "../polyte-core", version = "0.1.5" }
+polyte-core = { path = "../polyte-core", version = "0.1.6" }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
