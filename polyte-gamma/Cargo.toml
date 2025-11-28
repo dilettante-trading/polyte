@@ -14,7 +14,7 @@ categories = ["api-bindings", "web-programming::http-client"]
 default = []
 
 [dependencies]
-polyte-core = { path = "../polyte-core", version = "0.1.4" }
+polyte-core = { path = "../polyte-core", version = "0.1.5" }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
