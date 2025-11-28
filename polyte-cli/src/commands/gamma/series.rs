@@ -55,19 +55,13 @@ impl SeriesCommand {
                 sort,
                 status,
             } => {
-                let mut request = gamma.series().list();
-
-                request = request.limit(limit);
-                request = request.offset(offset);
-                request = request.ascending(matches!(sort, SortOrder::Asc));
-                match status {
-                    SeriesStatus::Open => {
-                        request = request.closed(false);
-                    }
-                    SeriesStatus::Closed => {
-                        request = request.closed(true);
-                    }
-                }
+                let request = gamma
+                    .series()
+                    .list()
+                    .limit(limit)
+                    .offset(offset)
+                    .ascending(matches!(sort, SortOrder::Asc))
+                    .closed(matches!(status, SeriesStatus::Closed));
 
                 let series = request.send().await?;
                 println!("{}", serde_json::to_string_pretty(&series)?);

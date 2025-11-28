@@ -50,11 +50,13 @@ impl SportsCommand {
                 order,
                 league,
             } => {
-                let mut request = gamma.sports().list_teams();
+                let mut request = gamma
+                    .sports()
+                    .list_teams()
+                    .limit(limit)
+                    .offset(offset)
+                    .ascending(matches!(sort, SortOrder::Asc));
 
-                request = request.limit(limit);
-                request = request.offset(offset);
-                request = request.ascending(matches!(sort, SortOrder::Asc));
                 if let Some(ord) = order {
                     request = request.order(ord);
                 }

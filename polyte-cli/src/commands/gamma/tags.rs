@@ -64,11 +64,13 @@ impl TagsCommand {
                 order,
                 is_carousel,
             } => {
-                let mut request = gamma.tags().list();
+                let mut request = gamma
+                    .tags()
+                    .list()
+                    .limit(limit)
+                    .offset(offset)
+                    .ascending(matches!(sort, SortOrder::Asc));
 
-                request = request.limit(limit);
-                request = request.offset(offset);
-                request = request.ascending(matches!(sort, SortOrder::Asc));
                 if let Some(ord) = order {
                     request = request.order(ord);
                 }

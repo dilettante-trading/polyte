@@ -99,12 +99,15 @@ impl EventsCommand {
                 sort,
                 order,
             } => {
-                let mut request = gamma.events().list();
+                let mut request = gamma
+                    .events()
+                    .list()
+                    .limit(limit)
+                    .offset(offset)
+                    .order(&order)
+                    .active(active)
+                    .ascending(matches!(sort, SortOrder::Asc));
 
-                request = request.limit(limit);
-                request = request.offset(offset);
-                request = request.order(&order);
-                request = request.active(active);
                 match status {
                     EventStatus::Open => {
                         request = request.closed(false).archived(false);
@@ -133,7 +136,6 @@ impl EventsCommand {
                 if let Some(max) = volume_max {
                     request = request.volume_max(max);
                 }
-                request = request.ascending(matches!(sort, SortOrder::Asc));
 
                 let events = request.send().await?;
                 println!("{}", serde_json::to_string_pretty(&events)?);

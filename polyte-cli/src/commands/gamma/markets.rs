@@ -132,9 +132,7 @@ impl MarketsCommand {
                 };
 
                 // Apply explicit overrides (these take precedence over presets)
-                request = request.limit(limit);
-                request = request.offset(offset);
-                request = request.active(active);
+                request = request.limit(limit).offset(offset).active(active);
                 match status {
                     MarketStatus::Open => {
                         request = request.closed(false).archived(false);

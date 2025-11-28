@@ -77,11 +77,13 @@ impl CommentsCommand {
                 get_positions,
                 holders_only,
             } => {
-                let mut request = gamma.comments().list();
+                let mut request = gamma
+                    .comments()
+                    .list()
+                    .limit(limit)
+                    .offset(offset)
+                    .ascending(matches!(sort, SortOrder::Asc));
 
-                request = request.limit(limit);
-                request = request.offset(offset);
-                request = request.ascending(matches!(sort, SortOrder::Asc));
                 if let Some(ord) = order {
                     request = request.order(ord);
                 }
