@@ -2,6 +2,8 @@ use clap::{Subcommand, ValueEnum};
 use color_eyre::eyre::Result;
 use polyte_gamma::Gamma;
 
+use crate::commands::gamma::SortOrder;
+
 /// Series status filter
 #[derive(Debug, Clone, Copy, ValueEnum, Default)]
 pub enum SeriesStatus {
@@ -10,16 +12,6 @@ pub enum SeriesStatus {
     Open,
     /// Closed series
     Closed,
-}
-
-/// Sort order
-#[derive(Debug, Clone, Copy, ValueEnum, Default)]
-pub enum SortOrder {
-    /// Ascending order
-    Asc,
-    /// Descending order
-    #[default]
-    Desc,
 }
 
 #[derive(Subcommand)]

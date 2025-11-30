@@ -2,6 +2,8 @@ use clap::{Subcommand, ValueEnum};
 use color_eyre::eyre::Result;
 use polyte_gamma::Gamma;
 
+use crate::commands::gamma::SortOrder;
+
 /// Market status filter
 #[derive(Debug, Clone, Copy, ValueEnum, Default)]
 pub enum MarketStatus {
@@ -12,16 +14,6 @@ pub enum MarketStatus {
     Closed,
     /// Archived markets
     Archived,
-}
-
-/// Sort order
-#[derive(Debug, Clone, Copy, ValueEnum, Default)]
-pub enum SortOrder {
-    /// Ascending order
-    Asc,
-    /// Descending order
-    #[default]
-    Desc,
 }
 
 /// Preset filters for common market queries

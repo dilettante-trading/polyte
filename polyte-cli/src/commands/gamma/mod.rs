@@ -5,7 +5,7 @@ mod series;
 mod sports;
 mod tags;
 
-use clap::Subcommand;
+use clap::{Subcommand, ValueEnum};
 use color_eyre::eyre::Result;
 use polyte_gamma::Gamma;
 
@@ -56,4 +56,14 @@ impl GammaCommand {
             Self::Comments { command } => command.run(&gamma).await,
         }
     }
+}
+
+/// Sort order
+#[derive(Debug, Clone, Copy, ValueEnum, Default)]
+pub enum SortOrder {
+    /// Ascending order
+    Asc,
+    /// Descending order
+    #[default]
+    Desc,
 }

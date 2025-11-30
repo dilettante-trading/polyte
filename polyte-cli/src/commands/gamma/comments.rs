@@ -2,15 +2,7 @@ use clap::{Subcommand, ValueEnum};
 use color_eyre::eyre::Result;
 use polyte_gamma::Gamma;
 
-/// Sort order
-#[derive(Debug, Clone, Copy, ValueEnum, Default)]
-pub enum SortOrder {
-    /// Ascending order
-    Asc,
-    /// Descending order
-    #[default]
-    Desc,
-}
+use crate::commands::gamma::SortOrder;
 
 /// Parent entity type for comments
 #[derive(Debug, Clone, Copy, ValueEnum)]

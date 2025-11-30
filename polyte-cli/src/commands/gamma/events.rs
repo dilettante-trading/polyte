@@ -2,6 +2,8 @@ use clap::{ArgAction, Subcommand, ValueEnum};
 use color_eyre::eyre::Result;
 use polyte_gamma::Gamma;
 
+use crate::commands::gamma::SortOrder;
+
 /// Event status filter
 #[derive(Debug, Clone, Copy, ValueEnum, Default)]
 pub enum EventStatus {
@@ -12,16 +14,6 @@ pub enum EventStatus {
     Closed,
     /// Archived events
     Archived,
-}
-
-/// Sort order
-#[derive(Debug, Clone, Copy, ValueEnum, Default)]
-pub enum SortOrder {
-    /// Ascending order
-    Asc,
-    /// Descending order
-    #[default]
-    Desc,
 }
 
 #[derive(Subcommand)]
