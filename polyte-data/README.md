@@ -8,7 +8,7 @@ More information about this crate can be found in the [crate documentation](http
 
 ## Installation
 
-```toml
+```
 cargo add polyte-data
 ```
 
