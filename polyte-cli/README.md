@@ -3,7 +3,7 @@
 CLI tool for querying Polymarket APIs.
 
 > [!NOTE]
-> Only Gamma API is supported as of now
+> Only Gamma and Data APIs are supported as of now
 
 ## Installation
 
@@ -43,6 +43,26 @@ Display all supported features
 
 ```
 polyte gamma --help
+```
+
+### Data API
+
+Query Data API.
+
+#### Markets
+
+```bash
+# List user activity
+polyte data positions --user 0x56687bf447db6ffa42ffe2204a05edaa20f55839 activity
+
+# List builders leaderboard
+polyte data builders leaderboard
+```
+
+Display all supported features
+
+```
+polyte data --help
 ```
 
 ## Shell completions
