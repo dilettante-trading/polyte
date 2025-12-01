@@ -28,27 +28,3 @@ urlencoding = "2.1"
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-[[example]]
-name = "retrieve_markets"
-path = "examples/retrieve_markets.rs"
-
-[[example]]
-name = "retrieve_sports"
-path = "examples/retrieve_sports.rs"
-
-[[example]]
-name = "retrieve_tags"
-path = "examples/retrieve_tags.rs"
-
-[[example]]
-name = "retrieve_series"
-path = "examples/retrieve_series.rs"
-
-[[example]]
-name = "advanced_market_filtering"
-path = "examples/advanced_market_filtering.rs"
-
-[[example]]
-name = "retrieve_events"
-path = "examples/retrieve_events.rs"
