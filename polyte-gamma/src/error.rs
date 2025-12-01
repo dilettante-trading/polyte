@@ -1,4 +1,4 @@
-use polyte_core::ApiError;
+use polyte_core::{ApiError, RequestError};
 use thiserror::Error;
 
 /// Result type for gamma operations
@@ -12,9 +12,8 @@ pub enum GammaError {
     Api(#[from] ApiError),
 }
 
-impl GammaError {
-    /// Create error from HTTP response
-    pub(crate) async fn from_response(response: reqwest::Response) -> Self {
+impl RequestError for GammaError {
+    async fn from_response(response: reqwest::Response) -> Self {
         Self::Api(ApiError::from_response(response).await)
     }
 }
@@ -28,11 +27,5 @@ impl From<reqwest::Error> for GammaError {
 impl From<url::ParseError> for GammaError {
     fn from(err: url::ParseError) -> Self {
         Self::Api(ApiError::Url(err))
-    }
-}
-
-impl From<serde_json::Error> for GammaError {
-    fn from(err: serde_json::Error) -> Self {
-        Self::Api(ApiError::Serialization(err))
     }
 }

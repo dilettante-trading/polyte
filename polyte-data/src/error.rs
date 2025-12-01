@@ -1,4 +1,4 @@
-use polyte_core::ApiError;
+use polyte_core::{ApiError, RequestError};
 use thiserror::Error;
 
 /// Result type for Data API operations
@@ -12,9 +12,8 @@ pub enum DataApiError {
     Api(#[from] ApiError),
 }
 
-impl DataApiError {
-    /// Create error from HTTP response
-    pub(crate) async fn from_response(response: reqwest::Response) -> Self {
+impl RequestError for DataApiError {
+    async fn from_response(response: reqwest::Response) -> Self {
         Self::Api(ApiError::from_response(response).await)
     }
 }
@@ -28,11 +27,5 @@ impl From<reqwest::Error> for DataApiError {
 impl From<url::ParseError> for DataApiError {
     fn from(err: url::ParseError) -> Self {
         Self::Api(ApiError::Url(err))
-    }
-}
-
-impl From<serde_json::Error> for DataApiError {
-    fn from(err: serde_json::Error) -> Self {
-        Self::Api(ApiError::Serialization(err))
     }
 }

@@ -1,8 +1,9 @@
+use polyte_core::{QueryBuilder, Request};
 use reqwest::Client;
 use url::Url;
 
 use crate::{
-    request::{QueryBuilder, Request},
+    error::DataApiError,
     types::{Trade, TradeFilterType, TradeSide},
 };
 
@@ -17,18 +18,14 @@ impl Trades {
     /// List trades with optional filtering
     pub fn list(&self) -> ListTrades {
         ListTrades {
-            request: Request::new(
-                self.client.clone(),
-                self.base_url.clone(),
-                "/trades".to_string(),
-            ),
+            request: Request::new(self.client.clone(), self.base_url.clone(), "/trades"),
         }
     }
 }
 
 /// Request builder for listing trades
 pub struct ListTrades {
-    request: Request<Vec<Trade>>,
+    request: Request<Vec<Trade>, DataApiError>,
 }
 
 impl ListTrades {

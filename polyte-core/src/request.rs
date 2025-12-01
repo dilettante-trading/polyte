@@ -1,5 +1,11 @@
 use std::marker::PhantomData;
 
+use reqwest::{Client, Response};
+use serde::de::DeserializeOwned;
+use url::Url;
+
+use crate::ApiError;
+
 /// Query parameter builder
 pub trait QueryBuilder: Sized {
     /// Add a query parameter
@@ -44,6 +50,94 @@ pub trait QueryBuilder: Sized {
         } else {
             self
         }
+    }
+}
+
+/// Trait for error types that can be created from API responses
+pub trait RequestError: From<ApiError> + std::fmt::Debug {
+    /// Create error from HTTP response
+    fn from_response(response: Response) -> impl std::future::Future<Output = Self> + Send;
+}
+
+/// Generic request builder for simple GET-only APIs (Gamma, Data)
+pub struct Request<T, E> {
+    pub(crate) client: Client,
+    pub(crate) base_url: Url,
+    pub(crate) path: String,
+    pub(crate) query: Vec<(String, String)>,
+    pub(crate) _marker: PhantomData<(T, E)>,
+}
+
+impl<T, E> Request<T, E> {
+    /// Create a new request
+    pub fn new(client: Client, base_url: Url, path: impl Into<String>) -> Self {
+        Self {
+            client,
+            base_url,
+            path: path.into(),
+            query: Vec::new(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T, E> QueryBuilder for Request<T, E> {
+    fn add_query(&mut self, key: String, value: String) {
+        self.query.push((key, value));
+    }
+}
+
+impl<T: DeserializeOwned, E: RequestError> Request<T, E> {
+    /// Execute the request and deserialize response
+    pub async fn send(self) -> Result<T, E> {
+        let response = self.send_raw().await?;
+
+        // Get text for debugging
+        let text = response
+            .text()
+            .await
+            .map_err(|e| E::from(ApiError::from(e)))?;
+
+        tracing::debug!("Response body: {}", text);
+
+        // Deserialize and provide better error context
+        serde_json::from_str(&text).map_err(|e| {
+            tracing::error!("Deserialization failed: {}", e);
+            tracing::error!("Failed to deserialize: {}", text);
+            E::from(ApiError::from(e))
+        })
+    }
+
+    /// Execute the request and return raw response
+    pub async fn send_raw(self) -> Result<Response, E> {
+        let url = self
+            .base_url
+            .join(&self.path)
+            .map_err(|e| E::from(ApiError::from(e)))?;
+
+        let mut request = self.client.get(url);
+
+        if !self.query.is_empty() {
+            request = request.query(&self.query);
+        }
+
+        tracing::debug!("Sending request to: {:?}", request);
+
+        let response = request
+            .send()
+            .await
+            .map_err(|e| E::from(ApiError::from(e)))?;
+        let status = response.status();
+
+        tracing::debug!("Response status: {}", status);
+
+        if !status.is_success() {
+            let error = E::from_response(response).await;
+            tracing::error!("Request failed: {:?}", error);
+            return Err(error);
+        }
+
+        Ok(response)
     }
 }
 

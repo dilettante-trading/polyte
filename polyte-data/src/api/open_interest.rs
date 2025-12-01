@@ -1,3 +1,4 @@
+use polyte_core::RequestError;
 use reqwest::Client;
 use url::Url;
 

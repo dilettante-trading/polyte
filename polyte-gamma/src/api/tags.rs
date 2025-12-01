@@ -1,10 +1,8 @@
+use polyte_core::{QueryBuilder, Request};
 use reqwest::Client;
 use url::Url;
 
-use crate::{
-    request::{QueryBuilder, Request},
-    types::Tag,
-};
+use crate::{error::GammaError, types::Tag};
 
 /// Tags namespace for tag-related operations
 #[derive(Clone)]
@@ -17,16 +15,12 @@ impl Tags {
     /// List tags with optional filtering
     pub fn list(&self) -> ListTags {
         ListTags {
-            request: Request::new(
-                self.client.clone(),
-                self.base_url.clone(),
-                "/tags".to_string(),
-            ),
+            request: Request::new(self.client.clone(), self.base_url.clone(), "/tags"),
         }
     }
 
     /// Get a tag by ID
-    pub fn get(&self, id: impl Into<String>) -> Request<Tag> {
+    pub fn get(&self, id: impl Into<String>) -> Request<Tag, GammaError> {
         Request::new(
             self.client.clone(),
             self.base_url.clone(),
@@ -35,7 +29,7 @@ impl Tags {
     }
 
     /// Get a tag by slug
-    pub fn get_by_slug(&self, slug: impl Into<String>) -> Request<Tag> {
+    pub fn get_by_slug(&self, slug: impl Into<String>) -> Request<Tag, GammaError> {
         Request::new(
             self.client.clone(),
             self.base_url.clone(),
@@ -44,7 +38,7 @@ impl Tags {
     }
 
     /// Get related tags by tag ID
-    pub fn get_related(&self, id: impl Into<String>) -> Request<Vec<Tag>> {
+    pub fn get_related(&self, id: impl Into<String>) -> Request<Vec<Tag>, GammaError> {
         Request::new(
             self.client.clone(),
             self.base_url.clone(),
@@ -53,7 +47,7 @@ impl Tags {
     }
 
     /// Get related tags by tag slug
-    pub fn get_related_by_slug(&self, slug: impl Into<String>) -> Request<Vec<Tag>> {
+    pub fn get_related_by_slug(&self, slug: impl Into<String>) -> Request<Vec<Tag>, GammaError> {
         Request::new(
             self.client.clone(),
             self.base_url.clone(),
@@ -67,7 +61,7 @@ impl Tags {
 
 /// Request builder for listing tags
 pub struct ListTags {
-    request: Request<Vec<Tag>>,
+    request: Request<Vec<Tag>, GammaError>,
 }
 
 impl ListTags {

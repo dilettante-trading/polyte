@@ -1,10 +1,8 @@
+use polyte_core::{QueryBuilder, Request};
 use reqwest::Client;
 use url::Url;
 
-use crate::{
-    request::{QueryBuilder, Request},
-    types::Market,
-};
+use crate::{error::GammaError, types::Market};
 
 /// Markets namespace for market-related operations
 #[derive(Clone)]
@@ -15,7 +13,7 @@ pub struct Markets {
 
 impl Markets {
     /// Get a specific market by ID
-    pub fn get(&self, id: impl Into<String>) -> Request<Market> {
+    pub fn get(&self, id: impl Into<String>) -> Request<Market, GammaError> {
         Request::new(
             self.client.clone(),
             self.base_url.clone(),
@@ -24,7 +22,7 @@ impl Markets {
     }
 
     /// Get a market by its slug
-    pub fn get_by_slug(&self, slug: impl Into<String>) -> Request<Market> {
+    pub fn get_by_slug(&self, slug: impl Into<String>) -> Request<Market, GammaError> {
         Request::new(
             self.client.clone(),
             self.base_url.clone(),
@@ -35,18 +33,14 @@ impl Markets {
     /// List markets with optional filtering
     pub fn list(&self) -> ListMarkets {
         ListMarkets {
-            request: Request::new(
-                self.client.clone(),
-                self.base_url.clone(),
-                "/markets".to_string(),
-            ),
+            request: Request::new(self.client.clone(), self.base_url.clone(), "/markets"),
         }
     }
 }
 
 /// Request builder for listing markets
 pub struct ListMarkets {
-    request: Request<Vec<Market>>,
+    request: Request<Vec<Market>, GammaError>,
 }
 
 impl ListMarkets {

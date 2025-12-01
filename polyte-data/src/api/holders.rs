@@ -1,8 +1,9 @@
+use polyte_core::{QueryBuilder, Request};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::request::{QueryBuilder, Request};
+use crate::error::DataApiError;
 
 /// Holders namespace for holder-related operations
 #[derive(Clone)]
@@ -15,11 +16,7 @@ impl Holders {
     /// Get top holders for markets
     pub fn list(&self, markets: impl IntoIterator<Item = impl ToString>) -> ListHolders {
         let market_ids: Vec<String> = markets.into_iter().map(|s| s.to_string()).collect();
-        let mut request = Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
-            "/holders".to_string(),
-        );
+        let mut request = Request::new(self.client.clone(), self.base_url.clone(), "/holders");
         if !market_ids.is_empty() {
             request = request.query("market", market_ids.join(","));
         }
@@ -30,7 +27,7 @@ impl Holders {
 
 /// Request builder for getting top holders
 pub struct ListHolders {
-    request: Request<Vec<MarketHolders>>,
+    request: Request<Vec<MarketHolders>, DataApiError>,
 }
 
 impl ListHolders {

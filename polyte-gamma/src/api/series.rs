@@ -1,10 +1,8 @@
+use polyte_core::{QueryBuilder, Request};
 use reqwest::Client;
 use url::Url;
 
-use crate::{
-    request::{QueryBuilder, Request},
-    types::SeriesData,
-};
+use crate::{error::GammaError, types::SeriesData};
 
 /// Series namespace for series-related operations
 #[derive(Clone)]
@@ -17,16 +15,12 @@ impl Series {
     /// List series with optional filtering
     pub fn list(&self) -> ListSeries {
         ListSeries {
-            request: Request::new(
-                self.client.clone(),
-                self.base_url.clone(),
-                "/series".to_string(),
-            ),
+            request: Request::new(self.client.clone(), self.base_url.clone(), "/series"),
         }
     }
 
     /// Get a series by ID
-    pub fn get(&self, id: impl Into<String>) -> Request<SeriesData> {
+    pub fn get(&self, id: impl Into<String>) -> Request<SeriesData, GammaError> {
         Request::new(
             self.client.clone(),
             self.base_url.clone(),
@@ -37,7 +31,7 @@ impl Series {
 
 /// Request builder for listing series
 pub struct ListSeries {
-    request: Request<Vec<SeriesData>>,
+    request: Request<Vec<SeriesData>, GammaError>,
 }
 
 impl ListSeries {

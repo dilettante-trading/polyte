@@ -13,3 +13,4 @@ pub mod request;
 
 pub use client::{ClientBuilder, ClientConfig};
 pub use error::ApiError;
+pub use request::{QueryBuilder, Request, RequestError};

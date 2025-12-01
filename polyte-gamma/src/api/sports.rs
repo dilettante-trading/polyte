@@ -1,8 +1,9 @@
+use polyte_core::{QueryBuilder, Request};
 use reqwest::Client;
 use url::Url;
 
 use crate::{
-    request::{QueryBuilder, Request},
+    error::GammaError,
     types::{SportMetadata, Team},
 };
 
@@ -15,29 +16,21 @@ pub struct Sports {
 
 impl Sports {
     /// Get all sports metadata
-    pub fn list(&self) -> Request<Vec<SportMetadata>> {
-        Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
-            "/sports".to_string(),
-        )
+    pub fn list(&self) -> Request<Vec<SportMetadata>, GammaError> {
+        Request::new(self.client.clone(), self.base_url.clone(), "/sports")
     }
 
     /// List teams with optional filtering
     pub fn list_teams(&self) -> ListTeams {
         ListTeams {
-            request: Request::new(
-                self.client.clone(),
-                self.base_url.clone(),
-                "/teams".to_string(),
-            ),
+            request: Request::new(self.client.clone(), self.base_url.clone(), "/teams"),
         }
     }
 }
 
 /// Request builder for listing teams
 pub struct ListTeams {
-    request: Request<Vec<Team>>,
+    request: Request<Vec<Team>, GammaError>,
 }
 
 impl ListTeams {

@@ -1,10 +1,8 @@
+use polyte_core::{QueryBuilder, Request};
 use reqwest::Client;
 use url::Url;
 
-use crate::{
-    request::{QueryBuilder, Request},
-    types::Event,
-};
+use crate::{error::GammaError, types::Event};
 
 /// Events namespace for event-related operations
 #[derive(Clone)]
@@ -17,16 +15,12 @@ impl Events {
     /// List events with optional filtering
     pub fn list(&self) -> ListEvents {
         ListEvents {
-            request: Request::new(
-                self.client.clone(),
-                self.base_url.clone(),
-                "/events".to_string(),
-            ),
+            request: Request::new(self.client.clone(), self.base_url.clone(), "/events"),
         }
     }
 
     /// Get an event by ID
-    pub fn get(&self, id: impl Into<String>) -> Request<Event> {
+    pub fn get(&self, id: impl Into<String>) -> Request<Event, GammaError> {
         Request::new(
             self.client.clone(),
             self.base_url.clone(),
@@ -35,7 +29,7 @@ impl Events {
     }
 
     /// Get an event by slug
-    pub fn get_by_slug(&self, slug: impl Into<String>) -> Request<Event> {
+    pub fn get_by_slug(&self, slug: impl Into<String>) -> Request<Event, GammaError> {
         Request::new(
             self.client.clone(),
             self.base_url.clone(),
@@ -44,7 +38,7 @@ impl Events {
     }
 
     /// Get related events by slug
-    pub fn get_related_by_slug(&self, slug: impl Into<String>) -> Request<Vec<Event>> {
+    pub fn get_related_by_slug(&self, slug: impl Into<String>) -> Request<Vec<Event>, GammaError> {
         Request::new(
             self.client.clone(),
             self.base_url.clone(),
@@ -55,7 +49,7 @@ impl Events {
 
 /// Request builder for listing events
 pub struct ListEvents {
-    request: Request<Vec<Event>>,
+    request: Request<Vec<Event>, GammaError>,
 }
 
 impl ListEvents {

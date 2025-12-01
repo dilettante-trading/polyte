@@ -1,11 +1,9 @@
+use polyte_core::{QueryBuilder, Request};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{
-    error::DataApiError,
-    request::{QueryBuilder, Request},
-};
+use crate::error::DataApiError;
 
 /// Builders namespace for builder-related operations
 #[derive(Clone)]
@@ -20,7 +18,7 @@ impl BuildersApi {
         let request = Request::new(
             self.client.clone(),
             self.base_url.clone(),
-            "/v1/builders/leaderboard".to_string(),
+            "/v1/builders/leaderboard",
         );
 
         GetBuilderLeaderboard { request }
@@ -31,7 +29,7 @@ impl BuildersApi {
         let request = Request::new(
             self.client.clone(),
             self.base_url.clone(),
-            "/v1/builders/volume".to_string(),
+            "/v1/builders/volume",
         );
 
         GetBuilderVolume { request }
@@ -40,7 +38,7 @@ impl BuildersApi {
 
 /// Request builder for getting the builder leaderboard
 pub struct GetBuilderLeaderboard {
-    request: Request<Vec<BuilderRanking>>,
+    request: Request<Vec<BuilderRanking>, DataApiError>,
 }
 
 impl GetBuilderLeaderboard {
@@ -114,7 +112,7 @@ pub struct BuilderRanking {
 
 /// Request builder for getting the builder volume time series
 pub struct GetBuilderVolume {
-    request: Request<Vec<BuilderVolume>>,
+    request: Request<Vec<BuilderVolume>, DataApiError>,
 }
 
 impl GetBuilderVolume {

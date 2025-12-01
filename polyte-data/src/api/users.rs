@@ -1,10 +1,10 @@
+use polyte_core::{QueryBuilder, Request, RequestError};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::{
     error::DataApiError,
-    request::{QueryBuilder, Request},
     types::{
         Activity, ActivitySortBy, ActivityType, ClosedPosition, ClosedPositionSortBy, Position,
         PositionSortBy, SortDirection, Trade, TradeFilterType, TradeSide, UserValue,
@@ -22,11 +22,7 @@ pub struct UserApi {
 impl UserApi {
     /// List positions for this user
     pub fn list_positions(&self) -> ListPositions {
-        let mut request = Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
-            "/positions".to_string(),
-        );
+        let mut request = Request::new(self.client.clone(), self.base_url.clone(), "/positions");
         request = request.query("user", &self.user_address);
 
         ListPositions { request }
@@ -34,11 +30,7 @@ impl UserApi {
 
     /// Get total value of this user's positions
     pub fn positions_value(&self) -> GetPositionValue {
-        let mut request = Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
-            "/value".to_string(),
-        );
+        let mut request = Request::new(self.client.clone(), self.base_url.clone(), "/value");
         request = request.query("user", &self.user_address);
 
         GetPositionValue { request }
@@ -49,7 +41,7 @@ impl UserApi {
         let mut request = Request::new(
             self.client.clone(),
             self.base_url.clone(),
-            "/closed-positions".to_string(),
+            "/closed-positions",
         );
         request = request.query("user", &self.user_address);
 
@@ -58,11 +50,7 @@ impl UserApi {
 
     /// List trades for this user
     pub fn trades(&self) -> ListUserTrades {
-        let mut request = Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
-            "/trades".to_string(),
-        );
+        let mut request = Request::new(self.client.clone(), self.base_url.clone(), "/trades");
         request = request.query("user", &self.user_address);
 
         ListUserTrades { request }
@@ -70,11 +58,7 @@ impl UserApi {
 
     /// List activity for this user
     pub fn activity(&self) -> ListActivity {
-        let mut request = Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
-            "/activity".to_string(),
-        );
+        let mut request = Request::new(self.client.clone(), self.base_url.clone(), "/activity");
         request = request.query("user", &self.user_address);
 
         ListActivity { request }
@@ -111,7 +95,7 @@ pub struct UserTraded {
 
 /// Request builder for listing user positions
 pub struct ListPositions {
-    request: Request<Vec<Position>>,
+    request: Request<Vec<Position>, DataApiError>,
 }
 
 impl ListPositions {
@@ -189,7 +173,7 @@ impl ListPositions {
 
 /// Request builder for getting total position value
 pub struct GetPositionValue {
-    request: Request<Vec<UserValue>>,
+    request: Request<Vec<UserValue>, DataApiError>,
 }
 
 impl GetPositionValue {
@@ -210,7 +194,7 @@ impl GetPositionValue {
 
 /// Request builder for listing closed positions
 pub struct ListClosedPositions {
-    request: Request<Vec<ClosedPosition>>,
+    request: Request<Vec<ClosedPosition>, DataApiError>,
 }
 
 impl ListClosedPositions {
@@ -270,7 +254,7 @@ impl ListClosedPositions {
 
 /// Request builder for listing user trades
 pub struct ListUserTrades {
-    request: Request<Vec<Trade>>,
+    request: Request<Vec<Trade>, DataApiError>,
 }
 
 impl ListUserTrades {
@@ -338,7 +322,7 @@ impl ListUserTrades {
 
 /// Request builder for listing user activity
 pub struct ListActivity {
-    request: Request<Vec<Activity>>,
+    request: Request<Vec<Activity>, DataApiError>,
 }
 
 impl ListActivity {

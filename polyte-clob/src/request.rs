@@ -1,11 +1,10 @@
 use std::marker::PhantomData;
 
 use alloy::primitives::Address;
+use polyte_core::request::QueryBuilder;
 use reqwest::{Client, Method, Response};
 use serde::de::DeserializeOwned;
 use url::Url;
-
-pub use polyte_core::request::QueryBuilder;
 
 use crate::{
     error::{ClobError, Result},

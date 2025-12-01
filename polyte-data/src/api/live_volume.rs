@@ -1,3 +1,4 @@
+use polyte_core::RequestError;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::Url;

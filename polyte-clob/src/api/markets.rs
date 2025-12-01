@@ -1,9 +1,10 @@
+use polyte_core::QueryBuilder;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::{
-    request::{AuthMode, QueryBuilder, Request},
+    request::{AuthMode, Request},
     types::OrderSide,
 };
 

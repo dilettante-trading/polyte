@@ -1,10 +1,8 @@
+use polyte_core::{QueryBuilder, Request};
 use reqwest::Client;
 use url::Url;
 
-use crate::{
-    request::{QueryBuilder, Request},
-    types::Comment,
-};
+use crate::{error::GammaError, types::Comment};
 
 /// Comments namespace for comment-related operations
 #[derive(Clone)]
@@ -17,18 +15,14 @@ impl Comments {
     /// List comments with optional filtering
     pub fn list(&self) -> ListComments {
         ListComments {
-            request: Request::new(
-                self.client.clone(),
-                self.base_url.clone(),
-                "/comments".to_string(),
-            ),
+            request: Request::new(self.client.clone(), self.base_url.clone(), "/comments"),
         }
     }
 }
 
 /// Request builder for listing comments
 pub struct ListComments {
-    request: Request<Vec<Comment>>,
+    request: Request<Vec<Comment>, GammaError>,
 }
 
 impl ListComments {
