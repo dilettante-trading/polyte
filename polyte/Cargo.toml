@@ -19,7 +19,7 @@ full = ["clob", "gamma", "data"]
 
 [dependencies]
 polyte-gamma = { path = "../polyte-gamma", version = "0.1.8", optional = true }
-polyte-clob = { path = "../polyte-clob", version = "0.1.7", optional = true }
+polyte-clob = { path = "../polyte-clob", version = "0.1.8", optional = true }
 polyte-data = { path = "../polyte-data", version = "0.1.1", optional = true }
 thiserror = { workspace = true }
 

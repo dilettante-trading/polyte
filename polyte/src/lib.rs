@@ -16,17 +16,11 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let private_key = "0x1234..."; // Load this from environment variables
-//!
-//!     // Set up credentials
-//!     let credentials = Credentials {
-//!         key: "<api_key>".to_string(),
-//!         secret: "<secret>".to_string(),
-//!         passphrase: "<passphrase>".to_string(),
-//!     };
+//!     // Load account from environment variables
+//!     let account = Account::from_env()?;
 //!
 //!     // Create unified client
-//!     let polymarket = Polymarket::builder(private_key, credentials)
+//!     let polymarket = Polymarket::builder(account)
 //!         .chain(Chain::PolygonMainnet)
 //!         .build()?;
 //!
@@ -59,7 +53,7 @@
 //! ```
 
 #[cfg(all(feature = "clob", feature = "gamma"))]
-use polyte_clob::{Chain, Clob, Credentials};
+use polyte_clob::{Account, Chain, Clob, ClobBuilder};
 #[cfg(all(feature = "clob", feature = "gamma"))]
 use polyte_gamma::Gamma;
 
@@ -76,7 +70,9 @@ pub mod prelude {
     pub use crate::{Polymarket, PolymarketBuilder, PolymarketError};
 
     #[cfg(feature = "clob")]
-    pub use polyte_clob::{Chain, Clob, ClobError, CreateOrderParams, Credentials, OrderSide};
+    pub use polyte_clob::{
+        Account, Chain, Clob, ClobBuilder, ClobError, CreateOrderParams, Credentials, OrderSide,
+    };
 
     #[cfg(feature = "data")]
     pub use polyte_data::{DataApi, DataApiError};
@@ -120,17 +116,14 @@ pub struct Polymarket {
 
 #[cfg(all(feature = "clob", feature = "gamma"))]
 impl Polymarket {
-    /// Create a new client
-    pub fn new(
-        private_key: impl Into<String>,
-        credentials: Credentials,
-    ) -> Result<Self, PolymarketError> {
-        PolymarketBuilder::new(private_key, credentials).build()
+    /// Create a new client from an Account
+    pub fn new(account: Account) -> Result<Self, PolymarketError> {
+        PolymarketBuilder::new(account).build()
     }
 
-    /// Create a new builder
-    pub fn builder(private_key: impl Into<String>, credentials: Credentials) -> PolymarketBuilder {
-        PolymarketBuilder::new(private_key, credentials)
+    /// Create a new builder with an Account
+    pub fn builder(account: Account) -> PolymarketBuilder {
+        PolymarketBuilder::new(account)
     }
 }
 
@@ -141,20 +134,18 @@ pub struct PolymarketBuilder {
     gamma_base_url: Option<String>,
     timeout_ms: Option<u64>,
     chain: Option<Chain>,
-    private_key: String,
-    credentials: Credentials,
+    account: Account,
 }
 
 #[cfg(all(feature = "clob", feature = "gamma"))]
 impl PolymarketBuilder {
-    fn new(private_key: impl Into<String>, credentials: Credentials) -> Self {
+    fn new(account: Account) -> Self {
         Self {
             clob_base_url: None,
             gamma_base_url: None,
             timeout_ms: None,
             chain: None,
-            private_key: private_key.into(),
-            credentials,
+            account,
         }
     }
 
@@ -197,7 +188,7 @@ impl PolymarketBuilder {
         let gamma = gamma_builder.build()?;
 
         // Build CLOB client
-        let mut clob_builder = Clob::builder(self.private_key, self.credentials)?;
+        let mut clob_builder = ClobBuilder::new(self.account);
 
         if let Some(url) = self.clob_base_url {
             clob_builder = clob_builder.base_url(url);

@@ -2617,7 +2617,7 @@ dependencies = [
 
 [[package]]
 name = "polyte"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "polyte-clob",
  "polyte-data",
@@ -2642,7 +2642,7 @@ dependencies = [
 
 [[package]]
 name = "polyte-clob"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "alloy",
  "anyhow",

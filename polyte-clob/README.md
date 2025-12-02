@@ -8,25 +8,14 @@ More information about this crate can be found in the [crate documentation](http
 
 ## Features
 
-- **EIP-712 Order Signing**: Ethereum-standard order signing for security
-- **Complete Trading Flow**: Create, sign, and post orders with a single method
 - **Account Management**: Check balances, allowances, and trade history
 - **Order Management**: List and cancel orders
 - **Market Data**: Get order books, prices, and market information
 
 ## Installation
 
-```toml
-[dependencies]
-polyte-clob = "0.1.0"
-tokio = { version = "1", features = ["full"] }
 ```
-
-Or use the unified client:
-
-```toml
-[dependencies]
-polyte = "0.1.0"
+cargo add polyte-clob
 ```
 
 ## Usage
@@ -34,25 +23,44 @@ polyte = "0.1.0"
 ### Setup
 
 ```rust
-use polyte_clob::{Clob, Credentials, Chain};
+use polyte_clob::{Account, Chain, ClobBuilder};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load credentials (from environment or secure storage)
-    let private_key = "0x..."; // Your Ethereum private key
-    let credentials = Credentials {
-        key: "api_key".to_string(),
-        secret: "api_secret".to_string(),
-        passphrase: "passphrase".to_string(),
-    };
+    // Load account from environment variables
+    let account = Account::from_env()?;
 
     // Create CLOB client
-    let clob = Clob::builder(private_key, credentials)?
+    let clob = ClobBuilder::new(account)
         .chain(Chain::PolygonMainnet)
         .build()?;
 
     Ok(())
 }
+```
+
+#### Account Configuration
+
+The `Account` abstraction provides multiple ways to load credentials:
+
+```rust
+use polyte_clob::{Account, Credentials};
+
+// Option 1: From environment variables
+// Reads: POLYMARKET_PRIVATE_KEY, POLYMARKET_API_KEY,
+//        POLYMARKET_API_SECRET, POLYMARKET_API_PASSPHRASE
+let account = Account::from_env()?;
+
+// Option 2: From a JSON file
+let account = Account::from_file("config/account.json")?;
+
+// Option 3: Direct construction
+let credentials = Credentials {
+    key: "api_key".to_string(),
+    secret: "api_secret".to_string(),
+    passphrase: "passphrase".to_string(),
+};
+let account = Account::new("0x...", credentials)?;
 ```
 
 ### Place an Order
@@ -77,138 +85,6 @@ if response.success {
     eprintln!("Order failed: {:?}", response.error_msg);
 }
 ```
-
-### Advanced: Manual Order Flow
-
-```rust
-// 1. Create unsigned order
-let order = clob.create_order(&params).await?;
-
-// 2. Sign the order with EIP-712
-let signed_order = clob.sign_order(&order).await?;
-
-// 3. Post to the order book
-let response = clob.post_order(&signed_order).await?;
-```
-
-### Check Balance and Allowance
-
-```rust
-let balance = clob.account()
-    .balance_allowance()
-    .send()
-    .await?;
-
-println!("Balance: {}", balance.balance);
-println!("Allowance: {}", balance.allowance);
-```
-
-### List Your Orders
-
-```rust
-let orders = clob.orders().list().send().await?;
-
-for order in orders {
-    println!("Order {}: {} @ {}",
-        order.id,
-        order.order.side,
-        order.order.maker_amount
-    );
-}
-```
-
-### Cancel an Order
-
-```rust
-let response = clob.orders()
-    .cancel("order_id_here")
-    .send()
-    .await?;
-
-if response.success {
-    println!("Order cancelled");
-}
-```
-
-### Get Order Book
-
-```rust
-let order_book = clob.markets()
-    .order_book("token_id_here")
-    .send()
-    .await?;
-
-println!("Bids: {} levels", order_book.bids.len());
-println!("Asks: {} levels", order_book.asks.len());
-```
-
-### Get Market Price
-
-```rust
-use polyte_clob::OrderSide;
-
-let price = clob.markets()
-    .price("token_id_here", OrderSide::Buy)
-    .send()
-    .await?;
-
-println!("Buy price: {}", price.price);
-```
-
-## Configuration
-
-```rust
-let clob = Clob::builder(private_key, credentials)?
-    .base_url("https://clob.polymarket.com")
-    .timeout_ms(30_000)
-    .pool_size(10)
-    .chain(Chain::PolygonMainnet) // or Chain::PolygonAmoy for testnet
-    .build()?;
-```
-
-## Supported Chains
-
-- **Polygon Mainnet** (chain ID: 137) - Production
-- **Polygon Amoy** (chain ID: 80002) - Testnet
-
-## Authentication
-
-The CLOB API requires two types of authentication:
-
-1. **Private Key**: For signing orders with EIP-712 (on-chain security)
-2. **API Credentials**: For authenticating API requests (off-chain)
-   - API Key
-   - API Secret
-   - Passphrase
-
-### Obtaining API Credentials
-
-Visit the [Polymarket API documentation](https://docs.polymarket.com) for instructions on obtaining API credentials.
-
-## Security Notes
-
-- **Never commit private keys or API credentials** to version control
-- Store credentials securely (environment variables, secrets manager)
-- Use testnet (Polygon Amoy) for development and testing
-- Validate all order parameters before signing
-
-## Examples
-
-The crate includes examples:
-
-```bash
-# Check balance and allowance
-cargo run --example balance_allowance
-
-# Retrieve market data
-cargo run --example retrieve_markets
-```
-
-## API Coverage
-
-- **Orders**: Create, sign, post, list, cancel
-- **Markets**: Get market info, order book, prices, midpoint
-- **Account**: Balance, allowance, trade history
 
 ## License
 

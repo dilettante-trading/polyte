@@ -41,13 +41,10 @@ use polyte::prelude::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let credentials = Credentials {
-        key: "api_key".to_string(),
-        secret: "secret".to_string(),
-        passphrase: "passphrase".to_string(),
-    };
+    // Load account from environment variables
+    let account = Account::from_env()?;
 
-    let client = Polymarket::builder("0x...", credentials)
+    let client = Polymarket::builder(account)
         .chain(Chain::PolygonMainnet)
         .build()?;
 
