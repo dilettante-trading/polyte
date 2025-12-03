@@ -2,8 +2,6 @@
 
 CLI tool for querying Polymarket APIs.
 
-> [!NOTE]
-> Only Gamma and Data APIs are supported as of now
 
 ## Installation
 
@@ -63,6 +61,30 @@ Display all supported features
 
 ```
 polyte data --help
+```
+
+### WebSocket
+
+Subscribe to real-time market data and user updates.
+
+```bash
+# Subscribe to market channel (order book, prices)
+polyte ws market <ASSET_ID>
+
+# Only show trades, exit after 10 messages
+polyte ws market --filter trade -n 10 <ASSET_ID>
+
+# Run for 30 seconds with summary output
+polyte ws market -t 30s -f summary <ASSET_ID>
+
+# Subscribe to user channel (requires API credentials)
+polyte ws user <MARKET_ID>
+```
+
+Display all supported features
+
+```
+polyte ws --help
 ```
 
 ## Shell completions

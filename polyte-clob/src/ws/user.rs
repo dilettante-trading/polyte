@@ -113,7 +113,8 @@ pub struct OrderMessage {
 }
 
 /// User channel message types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
 pub enum UserMessage {
     /// Trade update
     Trade(TradeMessage),

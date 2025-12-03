@@ -107,7 +107,8 @@ pub struct LastTradePriceMessage {
 }
 
 /// Market channel message types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
 pub enum MarketMessage {
     /// Full order book snapshot
     Book(BookMessage),
