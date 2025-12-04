@@ -20,7 +20,7 @@ impl ParentEntityType {
         match self {
             Self::Event => "Event",
             Self::Series => "Series",
-            Self::Market => "market",
+            Self::Market => "Market",
         }
     }
 }
