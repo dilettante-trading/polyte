@@ -3,6 +3,7 @@ use color_eyre::eyre::Result;
 use polyte_data::DataApi;
 
 use super::SortOrder;
+use crate::commands::common::parsing::parse_comma_separated;
 use crate::commands::data::trades::TradeSideFilter;
 
 #[derive(Args)]
@@ -20,11 +21,11 @@ pub enum PositionsSubcommand {
     /// List positions for the user
     List {
         /// Filter by market condition IDs (comma-separated)
-        #[arg(short, long)]
-        market: Option<String>,
+        #[arg(short, long, value_parser = parse_comma_separated)]
+        market: Option<Vec<String>>,
         /// Filter by event IDs (comma-separated)
-        #[arg(short, long)]
-        event_id: Option<String>,
+        #[arg(short, long, value_parser = parse_comma_separated)]
+        event_id: Option<Vec<String>>,
         /// Minimum position size filter (default: 1)
         #[arg(long)]
         size_threshold: Option<f64>,
@@ -53,17 +54,17 @@ pub enum PositionsSubcommand {
     /// Get total value of the user's positions
     Value {
         /// Filter by market condition IDs (comma-separated)
-        #[arg(short, long)]
-        market: Option<String>,
+        #[arg(short, long, value_parser = parse_comma_separated)]
+        market: Option<Vec<String>>,
     },
     /// List closed positions for the user
     Closed {
         /// Filter by market condition IDs (comma-separated)
-        #[arg(short, long)]
-        market: Option<String>,
+        #[arg(short, long, value_parser = parse_comma_separated)]
+        market: Option<Vec<String>>,
         /// Filter by event IDs (comma-separated)
-        #[arg(short, long)]
-        event_id: Option<String>,
+        #[arg(short, long, value_parser = parse_comma_separated)]
+        event_id: Option<Vec<String>>,
         /// Filter by market title (max 100 chars)
         #[arg(short, long)]
         title: Option<String>,
@@ -83,11 +84,11 @@ pub enum PositionsSubcommand {
     /// List activity for the user
     Activity {
         /// Filter by market condition IDs (comma-separated)
-        #[arg(short, long)]
-        market: Option<String>,
+        #[arg(short, long, value_parser = parse_comma_separated)]
+        market: Option<Vec<String>>,
         /// Filter by event IDs (comma-separated)
-        #[arg(short, long)]
-        event_id: Option<String>,
+        #[arg(short, long, value_parser = parse_comma_separated)]
+        event_id: Option<Vec<String>>,
         /// Filter by activity types (comma-separated: trade, split, merge, redeem, reward, conversion)
         #[arg(short = 'T', long)]
         activity_type: Option<String>,
@@ -134,12 +135,12 @@ impl PositionsCommand {
             } => {
                 let mut request = positions_api.list_positions();
 
-                if let Some(m) = market {
-                    let ids: Vec<&str> = m.split(',').map(|s| s.trim()).collect();
+                if let Some(ref ids) = market {
+                    let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
                     request = request.market(ids);
                 }
-                if let Some(e) = event_id {
-                    let ids: Vec<&str> = e.split(',').map(|s| s.trim()).collect();
+                if let Some(ref ids) = event_id {
+                    let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
                     request = request.event_id(ids);
                 }
                 if let Some(threshold) = size_threshold {
@@ -165,8 +166,8 @@ impl PositionsCommand {
             }
             PositionsSubcommand::Value { market } => {
                 let mut request = positions_api.positions_value();
-                if let Some(m) = market {
-                    let ids: Vec<&str> = m.split(',').map(|s| s.trim()).collect();
+                if let Some(ref ids) = market {
+                    let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
                     request = request.market(ids);
                 }
                 let value = request.send().await?;
@@ -188,12 +189,12 @@ impl PositionsCommand {
                     .sort_by(sort_by.into())
                     .sort_direction(sort_direction.into());
 
-                if let Some(m) = market {
-                    let ids: Vec<&str> = m.split(',').map(|s| s.trim()).collect();
+                if let Some(ref ids) = market {
+                    let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
                     request = request.market(ids);
                 }
-                if let Some(e) = event_id {
-                    let ids: Vec<&str> = e.split(',').map(|s| s.trim()).collect();
+                if let Some(ref ids) = event_id {
+                    let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
                     request = request.event_id(ids);
                 }
                 if let Some(t) = title {
@@ -222,12 +223,12 @@ impl PositionsCommand {
                     .sort_by(sort_by.into())
                     .sort_direction(sort_direction.into());
 
-                if let Some(m) = market {
-                    let ids: Vec<&str> = m.split(',').map(|s| s.trim()).collect();
+                if let Some(ref ids) = market {
+                    let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
                     request = request.market(ids);
                 }
-                if let Some(e) = event_id {
-                    let ids: Vec<&str> = e.split(',').map(|s| s.trim()).collect();
+                if let Some(ref ids) = event_id {
+                    let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
                     request = request.event_id(ids);
                 }
                 if let Some(types) = activity_type {

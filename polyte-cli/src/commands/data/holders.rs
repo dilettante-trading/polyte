@@ -2,12 +2,14 @@ use clap::Args;
 use color_eyre::eyre::Result;
 use polyte_data::DataApi;
 
+use crate::commands::common::parsing::parse_comma_separated;
+
 /// Get top holders for markets
 #[derive(Args)]
 pub struct HoldersCommand {
     /// Market condition IDs (comma-separated, required)
-    #[arg(short, long)]
-    market: String,
+    #[arg(short, long, value_parser = parse_comma_separated)]
+    market: Vec<String>,
     /// Maximum number of holders per market between 0 and 500
     #[arg(short, long, default_value = "100")]
     limit: u32,
@@ -18,7 +20,7 @@ pub struct HoldersCommand {
 
 impl HoldersCommand {
     pub async fn run(self, data: &DataApi) -> Result<()> {
-        let ids: Vec<&str> = self.market.split(',').map(|s| s.trim()).collect();
+        let ids: Vec<&str> = self.market.iter().map(|s| s.as_str()).collect();
         let request = data
             .holders()
             .list(ids)

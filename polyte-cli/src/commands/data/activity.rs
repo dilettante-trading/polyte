@@ -3,6 +3,7 @@ use color_eyre::eyre::Result;
 use polyte_data::{types::ActivityType, DataApi};
 
 use super::SortOrder;
+use crate::commands::common::parsing::parse_comma_separated;
 use crate::commands::data::trades::TradeSideFilter;
 
 #[derive(Args)]
@@ -11,11 +12,11 @@ pub struct UserActivityCommand {
     #[arg(short, long)]
     pub user: String,
     /// Filter by market condition IDs (comma-separated)
-    #[arg(short, long)]
-    market: Option<String>,
+    #[arg(short, long, value_parser = parse_comma_separated)]
+    market: Option<Vec<String>>,
     /// Filter by event IDs (comma-separated)
-    #[arg(short, long)]
-    event_id: Option<String>,
+    #[arg(short, long, value_parser = parse_comma_separated)]
+    event_id: Option<Vec<String>>,
     /// Filter by activity types (comma-separated: trade, split, merge, redeem, reward, conversion)
     #[arg(short = 'T', long)]
     activity_type: Option<String>,
@@ -53,12 +54,12 @@ impl UserActivityCommand {
             .sort_by(self.sort_by.into())
             .sort_direction(self.sort_direction.into());
 
-        if let Some(m) = self.market {
-            let ids: Vec<&str> = m.split(',').map(|s| s.trim()).collect();
+        if let Some(ref ids) = self.market {
+            let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
             request = request.market(ids);
         }
-        if let Some(e) = self.event_id {
-            let ids: Vec<&str> = e.split(',').map(|s| s.trim()).collect();
+        if let Some(ref ids) = self.event_id {
+            let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
             request = request.event_id(ids);
         }
         if let Some(types) = self.activity_type {

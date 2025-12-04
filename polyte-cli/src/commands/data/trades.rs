@@ -2,6 +2,8 @@ use clap::{Subcommand, ValueEnum};
 use color_eyre::eyre::Result;
 use polyte_data::DataApi;
 
+use crate::commands::common::parsing::parse_comma_separated;
+
 #[derive(Subcommand)]
 pub enum TradesCommand {
     /// List trades for a user or markets
@@ -10,11 +12,11 @@ pub enum TradesCommand {
         #[arg(short, long)]
         user: Option<String>,
         /// Filter by market condition IDs (comma-separated)
-        #[arg(short, long)]
-        market: Option<String>,
+        #[arg(short, long, value_parser = parse_comma_separated)]
+        market: Option<Vec<String>>,
         /// Filter by event IDs (comma-separated)
-        #[arg(short, long)]
-        event_id: Option<String>,
+        #[arg(short, long, value_parser = parse_comma_separated)]
+        event_id: Option<Vec<String>>,
         /// Filter by trade side
         #[arg(short, long, value_enum)]
         side: Option<TradeSideFilter>,
@@ -58,12 +60,12 @@ impl TradesCommand {
                         .offset(offset)
                         .taker_only(taker_only);
 
-                    if let Some(m) = market {
-                        let ids: Vec<&str> = m.split(',').map(|s| s.trim()).collect();
+                    if let Some(ref ids) = market {
+                        let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
                         request = request.market(ids);
                     }
-                    if let Some(e) = event_id {
-                        let ids: Vec<&str> = e.split(',').map(|s| s.trim()).collect();
+                    if let Some(ref ids) = event_id {
+                        let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
                         request = request.event_id(ids);
                     }
                     if let Some(s) = side {
@@ -85,12 +87,12 @@ impl TradesCommand {
                         .offset(offset)
                         .taker_only(taker_only);
 
-                    if let Some(m) = market {
-                        let ids: Vec<&str> = m.split(',').map(|s| s.trim()).collect();
+                    if let Some(ref ids) = market {
+                        let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
                         request = request.market(ids);
                     }
-                    if let Some(e) = event_id {
-                        let ids: Vec<&str> = e.split(',').map(|s| s.trim()).collect();
+                    if let Some(ref ids) = event_id {
+                        let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
                         request = request.event_id(ids);
                     }
                     if let Some(s) = side {
