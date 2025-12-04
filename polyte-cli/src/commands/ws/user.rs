@@ -28,15 +28,15 @@ pub struct UserArgs {
     #[arg(required = true)]
     market_ids: Vec<String>,
 
-    /// API key (defaults to POLYMARKET_API_KEY env var)
+    /// API key
     #[arg(long, env = "POLYMARKET_API_KEY")]
     api_key: Option<String>,
 
-    /// API secret (defaults to POLYMARKET_API_SECRET env var)
+    /// API secret
     #[arg(long, env = "POLYMARKET_API_SECRET")]
     api_secret: Option<String>,
 
-    /// API passphrase (defaults to POLYMARKET_API_PASSPHRASE env var)
+    /// API passphrase
     #[arg(long, env = "POLYMARKET_API_PASSPHRASE")]
     api_passphrase: Option<String>,
 
