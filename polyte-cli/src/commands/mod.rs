@@ -1,3 +1,5 @@
+mod common;
+
 pub mod completions;
 pub mod data;
 pub mod gamma;
