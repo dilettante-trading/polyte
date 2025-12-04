@@ -6,13 +6,13 @@ use std::{
     time::Duration,
 };
 
-use clap::Args;
+use clap::{Args, ValueEnum};
 use color_eyre::eyre::Result;
 use futures_util::StreamExt;
 use polyte_clob::ws::{ApiCredentials, Channel, UserMessage, WebSocket};
 
 /// User event types to filter
-#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum UserEventType {
     /// Order updates
     Order,
@@ -87,7 +87,7 @@ fn parse_duration(s: &str) -> Result<Duration, String> {
     }
 }
 
-#[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
+#[derive(Debug, Clone, Copy, ValueEnum, Default)]
 pub enum OutputFormat {
     /// Pretty-printed JSON
     #[default]
@@ -99,17 +99,7 @@ pub enum OutputFormat {
 }
 
 pub async fn run(args: UserArgs) -> Result<()> {
-    let credentials = match (args.api_key, args.api_secret, args.api_passphrase) {
-        (Some(key), Some(secret), Some(passphrase)) => {
-            ApiCredentials::new(key, secret, passphrase)
-        }
-        _ => ApiCredentials::from_env().map_err(|e| {
-            color_eyre::eyre::eyre!(
-                "Missing API credentials. Set POLYMARKET_API_KEY, POLYMARKET_API_SECRET, and POLYMARKET_API_PASSPHRASE environment variables, or provide --api-key, --api-secret, and --api-passphrase flags. Error: {}",
-                e
-            )
-        })?,
-    };
+    let credentials = get_credentials(args.api_key, args.api_secret, args.api_passphrase);
 
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -185,6 +175,33 @@ pub async fn run(args: UserArgs) -> Result<()> {
     ws.close().await?;
 
     Ok(())
+}
+
+fn get_credentials(
+    api_key: Option<String>,
+    api_secret: Option<String>,
+    api_passphrase: Option<String>,
+) -> ApiCredentials {
+    match (api_key, api_secret, api_passphrase) {
+        (Some(key), Some(secret), Some(passphrase)) => ApiCredentials::new(key, secret, passphrase),
+        (key, secret, passphrase) => {
+            let mut missing = Vec::new();
+            if key.is_none() {
+                missing.push("--api-key / POLYMARKET_API_KEY");
+            }
+            if secret.is_none() {
+                missing.push("--api-secret / POLYMARKET_API_SECRET");
+            }
+            if passphrase.is_none() {
+                missing.push("--api-passphrase / POLYMARKET_API_PASSPHRASE");
+            }
+            eprintln!("Error: Missing required credentials:\n");
+            for m in &missing {
+                eprintln!("  - {}", m);
+            }
+            std::process::exit(1);
+        }
+    }
 }
 
 fn should_print(channel: &Channel, filters: &[UserEventType]) -> bool {
