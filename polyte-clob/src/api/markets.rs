@@ -128,7 +128,7 @@ pub struct OrderBook {
     pub asset_id: String,
     pub bids: Vec<OrderLevel>,
     pub asks: Vec<OrderLevel>,
-    pub timestamp: u64,
+    pub timestamp: String,
     pub hash: String,
 }
 
