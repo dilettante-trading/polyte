@@ -1,6 +1,6 @@
 [package]
 name = "polyte-clob"
-version = "0.2.1"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
@@ -23,7 +23,7 @@ alloy = { version = "1.1.2", features = [
     "signer-local",
     "signers",
 ] }
-polyte-core = { path = "../polyte-core", version = "0.1.6" }
+polyte-core = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -45,5 +45,5 @@ futures-util = { workspace = true, optional = true }
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-polyte-gamma = { path = "../polyte-gamma" }
+polyte-gamma = { workspace = true }
 futures-util = { workspace = true }

@@ -1,3 +1,12 @@
+## [0.4.0] - 2026-01-05
+
+### 🐛 Bug Fixes
+
+- *(clob)* Correct the type of the OrderBook timestamp
+
+### ⚙️ Miscellaneous Tasks
+
+- Add changelog and publish it on Github Releases page
 ## [cli-v0.3.2] - 2025-12-04
 
 ### 🐛 Bug Fixes

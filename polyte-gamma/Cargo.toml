@@ -1,6 +1,6 @@
 [package]
 name = "polyte-gamma"
-version = "0.1.8"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
@@ -14,7 +14,7 @@ categories = ["api-bindings", "web-programming::http-client"]
 default = []
 
 [dependencies]
-polyte-core = { path = "../polyte-core", version = "0.1.7" }
+polyte-core = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
