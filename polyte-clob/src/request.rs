@@ -8,7 +8,7 @@ use url::Url;
 
 use crate::{
     account::{Credentials, Signer, Wallet},
-    error::{ClobError, Result},
+    error::ClobError,
     utils::current_timestamp,
 };
 
@@ -106,7 +106,7 @@ impl<T> Request<T> {
     }
 
     /// Set request body
-    pub fn body<B: serde::Serialize>(mut self, body: &B) -> Result<Self> {
+    pub fn body<B: serde::Serialize>(mut self, body: &B) -> Result<Self, ClobError> {
         self.body = Some(serde_json::to_value(body)?);
         Ok(self)
     }
@@ -120,7 +120,7 @@ impl<T> QueryBuilder for Request<T> {
 
 impl<T: DeserializeOwned> Request<T> {
     /// Execute the request and deserialize response
-    pub async fn send(self) -> Result<T> {
+    pub async fn send(self) -> Result<T, ClobError> {
         let response = self.send_raw().await?;
 
         // Get text for debugging
@@ -137,7 +137,7 @@ impl<T: DeserializeOwned> Request<T> {
     }
 
     /// Execute the request and return raw response
-    pub async fn send_raw(self) -> Result<Response> {
+    pub async fn send_raw(self) -> Result<Response, ClobError> {
         let url = self.base_url.join(&self.path)?;
 
         // Build the base request
@@ -189,7 +189,7 @@ impl<T: DeserializeOwned> Request<T> {
     async fn add_auth_headers(
         &self,
         mut request: reqwest::RequestBuilder,
-    ) -> Result<reqwest::RequestBuilder> {
+    ) -> Result<reqwest::RequestBuilder, ClobError> {
         match &self.auth {
             AuthMode::None => Ok(request),
             AuthMode::L1 {

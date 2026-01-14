@@ -3,7 +3,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::error::{DataApiError, Result};
+use crate::error::DataApiError;
 
 /// LiveVolume namespace for live volume operations
 #[derive(Clone)]
@@ -14,7 +14,7 @@ pub struct LiveVolumeApi {
 
 impl LiveVolumeApi {
     /// Get live volume for an event
-    pub async fn get(&self, event_id: u64) -> Result<Vec<LiveVolume>> {
+    pub async fn get(&self, event_id: u64) -> Result<Vec<LiveVolume>, DataApiError> {
         let url = self.base_url.join("/live-volume")?;
         let response = self
             .client

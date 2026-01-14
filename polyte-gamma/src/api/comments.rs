@@ -75,7 +75,7 @@ impl ListComments {
     }
 
     /// Execute the request
-    pub async fn send(self) -> crate::error::Result<Vec<Comment>> {
+    pub async fn send(self) -> Result<Vec<Comment>, GammaError> {
         self.request.send().await
     }
 }

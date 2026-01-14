@@ -65,7 +65,7 @@ pub use api::{
     orders::{CancelResponse, OpenOrder, OrderResponse},
 };
 pub use client::{Clob, ClobBuilder, CreateOrderParams};
-pub use error::{ClobError, Result};
+pub use error::ClobError;
 pub use types::{
     Order, OrderKind, OrderSide, ParseTickSizeError, SignatureType, SignedOrder, TickSize,
 };

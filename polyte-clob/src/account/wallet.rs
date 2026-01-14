@@ -1,6 +1,6 @@
 use alloy::{network::EthereumWallet, primitives::Address, signers::local::PrivateKeySigner};
 
-use crate::error::{ClobError, Result};
+use crate::error::ClobError;
 
 /// Wallet wrapper for signing operations
 #[derive(Clone, Debug)]
@@ -11,7 +11,7 @@ pub struct Wallet {
 
 impl Wallet {
     /// Create wallet from private key hex string
-    pub fn from_private_key(private_key: &str) -> Result<Self> {
+    pub fn from_private_key(private_key: &str) -> Result<Self, ClobError> {
         let signer = private_key
             .parse::<PrivateKeySigner>()
             .map_err(|e| ClobError::Crypto(format!("Failed to parse private key: {}", e)))?;

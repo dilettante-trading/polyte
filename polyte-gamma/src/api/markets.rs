@@ -222,7 +222,7 @@ impl ListMarkets {
     }
 
     /// Execute the request
-    pub async fn send(self) -> crate::error::Result<Vec<Market>> {
+    pub async fn send(self) -> Result<Vec<Market>, GammaError> {
         self.request.send().await
     }
 }

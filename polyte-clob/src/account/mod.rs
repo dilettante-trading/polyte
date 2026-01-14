@@ -17,7 +17,7 @@ pub use wallet::Wallet;
 
 use crate::{
     core::eip712::{sign_clob_auth, sign_order},
-    error::{ClobError, Result},
+    error::ClobError,
     types::{Order, SignedOrder},
 };
 
@@ -88,7 +88,10 @@ impl Account {
     /// let account = Account::new("0x...", credentials)?;
     /// # Ok::<(), polyte_clob::ClobError>(())
     /// ```
-    pub fn new(private_key: impl Into<String>, credentials: Credentials) -> Result<Self> {
+    pub fn new(
+        private_key: impl Into<String>,
+        credentials: Credentials,
+    ) -> Result<Self, ClobError> {
         let wallet = Wallet::from_private_key(&private_key.into())?;
         let signer = Signer::new(&credentials.secret)?;
 
@@ -115,7 +118,7 @@ impl Account {
     /// let account = Account::from_env()?;
     /// # Ok::<(), polyte_clob::ClobError>(())
     /// ```
-    pub fn from_env() -> Result<Self> {
+    pub fn from_env() -> Result<Self, ClobError> {
         let private_key = std::env::var(env::PRIVATE_KEY).map_err(|_| {
             ClobError::validation(format!(
                 "Missing environment variable: {}",
@@ -161,7 +164,7 @@ impl Account {
     /// let account = Account::from_file("config/account.json")?;
     /// # Ok::<(), polyte_clob::ClobError>(())
     /// ```
-    pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, ClobError> {
         let path = path.as_ref();
         let content = std::fs::read_to_string(path).map_err(|e| {
             ClobError::validation(format!(
@@ -191,7 +194,7 @@ impl Account {
     /// let account = Account::from_json(json)?;
     /// # Ok::<(), polyte_clob::ClobError>(())
     /// ```
-    pub fn from_json(json: &str) -> Result<Self> {
+    pub fn from_json(json: &str) -> Result<Self, ClobError> {
         let config: AccountConfig = serde_json::from_str(json)
             .map_err(|e| ClobError::validation(format!("Failed to parse JSON config: {}", e)))?;
 
@@ -236,7 +239,7 @@ impl Account {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn sign_order(&self, order: &Order, chain_id: u64) -> Result<SignedOrder> {
+    pub async fn sign_order(&self, order: &Order, chain_id: u64) -> Result<SignedOrder, ClobError> {
         let signature = sign_order(order, self.wallet.signer(), chain_id).await?;
 
         Ok(SignedOrder {
@@ -257,7 +260,7 @@ impl Account {
         chain_id: u64,
         timestamp: u64,
         nonce: u32,
-    ) -> Result<String> {
+    ) -> Result<String, ClobError> {
         sign_clob_auth(self.wallet.signer(), chain_id, timestamp, nonce).await
     }
 
@@ -275,7 +278,7 @@ impl Account {
         method: &str,
         path: &str,
         body: Option<&str>,
-    ) -> Result<String> {
+    ) -> Result<String, ClobError> {
         let message = Signer::create_message(timestamp, method, path, body);
         self.signer.sign(&message)
     }

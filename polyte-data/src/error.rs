@@ -1,9 +1,6 @@
 use polyte_core::{ApiError, RequestError};
 use thiserror::Error;
 
-/// Result type for Data API operations
-pub type Result<T> = std::result::Result<T, DataApiError>;
-
 /// Error types for Data API operations
 #[derive(Error, Debug)]
 pub enum DataApiError {

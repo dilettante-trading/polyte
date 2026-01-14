@@ -1,9 +1,6 @@
 use polyte_core::{ApiError, RequestError};
 use thiserror::Error;
 
-/// Result type for gamma operations
-pub type Result<T> = std::result::Result<T, GammaError>;
-
 /// Error types for gamma API operations
 #[derive(Error, Debug)]
 pub enum GammaError {

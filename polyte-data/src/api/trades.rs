@@ -92,7 +92,7 @@ impl ListTrades {
     }
 
     /// Execute the request
-    pub async fn send(self) -> crate::error::Result<Vec<Trade>> {
+    pub async fn send(self) -> Result<Vec<Trade>, DataApiError> {
         self.request.send().await
     }
 }

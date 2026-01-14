@@ -44,7 +44,7 @@ impl ListHolders {
     }
 
     /// Execute the request
-    pub async fn send(self) -> crate::error::Result<Vec<MarketHolders>> {
+    pub async fn send(self) -> Result<Vec<MarketHolders>, DataApiError> {
         self.request.send().await
     }
 }

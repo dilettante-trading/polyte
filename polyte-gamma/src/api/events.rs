@@ -210,7 +210,7 @@ impl ListEvents {
     }
 
     /// Execute the request
-    pub async fn send(self) -> crate::error::Result<Vec<Event>> {
+    pub async fn send(self) -> Result<Vec<Event>, GammaError> {
         self.request.send().await
     }
 }

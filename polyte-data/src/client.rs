@@ -12,7 +12,7 @@ use crate::{
         trades::Trades,
         users::{UserApi, UserTraded},
     },
-    error::{DataApiError, Result},
+    error::DataApiError,
 };
 
 const DEFAULT_BASE_URL: &str = "https://data-api.polymarket.com";
@@ -26,7 +26,7 @@ pub struct DataApi {
 
 impl DataApi {
     /// Create a new Data API client with default configuration
-    pub fn new() -> Result<Self> {
+    pub fn new() -> Result<Self, DataApiError> {
         Self::builder().build()
     }
 
@@ -140,7 +140,7 @@ impl DataApiBuilder {
     }
 
     /// Build the Data API client
-    pub fn build(self) -> Result<DataApi> {
+    pub fn build(self) -> Result<DataApi, DataApiError> {
         let HttpClient { client, base_url } = HttpClientBuilder::new(&self.base_url)
             .timeout_ms(self.timeout_ms)
             .pool_size(self.pool_size)

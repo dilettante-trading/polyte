@@ -77,7 +77,7 @@ impl ListTeams {
     }
 
     /// Execute the request
-    pub async fn send(self) -> crate::error::Result<Vec<Team>> {
+    pub async fn send(self) -> Result<Vec<Team>, GammaError> {
         self.request.send().await
     }
 }

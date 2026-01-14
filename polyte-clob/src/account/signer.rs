@@ -2,7 +2,7 @@ use base64::{engine::general_purpose::STANDARD, prelude::BASE64_URL_SAFE_NO_PAD,
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 
-use crate::error::{ClobError, Result};
+use crate::error::ClobError;
 
 /// HMAC signer for API authentication
 #[derive(Clone, Debug)]
@@ -12,7 +12,7 @@ pub struct Signer {
 
 impl Signer {
     /// Create a new signer from base64-encoded secret (supports multiple formats)
-    pub fn new(secret: &str) -> Result<Self> {
+    pub fn new(secret: &str) -> Result<Self, ClobError> {
         // Try different base64 formats:
         // 1. URL-safe without padding (most common for API keys)
         // 2. URL-safe with padding
@@ -28,7 +28,7 @@ impl Signer {
     }
 
     /// Sign a message with HMAC-SHA256
-    pub fn sign(&self, message: &str) -> Result<String> {
+    pub fn sign(&self, message: &str) -> Result<String, ClobError> {
         let mut mac = Hmac::<Sha256>::new_from_slice(&self.secret)
             .map_err(|e| ClobError::Crypto(format!("Failed to create HMAC: {}", e)))?;
 

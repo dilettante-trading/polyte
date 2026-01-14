@@ -60,7 +60,7 @@ impl ListSeries {
     }
 
     /// Execute the request
-    pub async fn send(self) -> crate::error::Result<Vec<SeriesData>> {
+    pub async fn send(self) -> Result<Vec<SeriesData>, GammaError> {
         self.request.send().await
     }
 }

@@ -7,7 +7,7 @@ use crate::{
         comments::Comments, events::Events, markets::Markets, series::Series, sports::Sports,
         tags::Tags,
     },
-    error::Result,
+    error::GammaError,
 };
 
 const DEFAULT_BASE_URL: &str = "https://gamma-api.polymarket.com";
@@ -21,7 +21,7 @@ pub struct Gamma {
 
 impl Gamma {
     /// Create a new Gamma client with default configuration
-    pub fn new() -> Result<Self> {
+    pub fn new() -> Result<Self, GammaError> {
         Self::builder().build()
     }
 
@@ -114,7 +114,7 @@ impl GammaBuilder {
     }
 
     /// Build the Gamma client
-    pub fn build(self) -> Result<Gamma> {
+    pub fn build(self) -> Result<Gamma, GammaError> {
         let HttpClient { client, base_url } = HttpClientBuilder::new(&self.base_url)
             .timeout_ms(self.timeout_ms)
             .pool_size(self.pool_size)

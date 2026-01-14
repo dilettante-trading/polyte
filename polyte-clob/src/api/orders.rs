@@ -4,7 +4,7 @@ use url::Url;
 
 use crate::{
     account::{Credentials, Signer, Wallet},
-    error::Result,
+    error::ClobError,
     request::{AuthMode, Request},
     types::SignedOrder,
 };
@@ -63,7 +63,7 @@ pub struct CancelOrderRequest {
 
 impl CancelOrderRequest {
     /// Execute the cancel request
-    pub async fn send(self) -> Result<CancelResponse> {
+    pub async fn send(self) -> Result<CancelResponse, ClobError> {
         #[derive(serde::Serialize)]
         struct CancelRequest {
             #[serde(rename = "orderID")]

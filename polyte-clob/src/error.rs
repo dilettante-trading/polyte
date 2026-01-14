@@ -3,9 +3,6 @@ use thiserror::Error;
 
 use crate::types::ParseTickSizeError;
 
-/// Result type for CLOB operations
-pub type Result<T> = std::result::Result<T, ClobError>;
-
 /// Error types for CLOB API operations
 #[derive(Error, Debug)]
 pub enum ClobError {

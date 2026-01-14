@@ -102,7 +102,7 @@ impl ListTags {
     }
 
     /// Execute the request
-    pub async fn send(self) -> crate::error::Result<Vec<Tag>> {
+    pub async fn send(self) -> Result<Vec<Tag>, GammaError> {
         self.request.send().await
     }
 }

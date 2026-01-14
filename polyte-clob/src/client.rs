@@ -6,7 +6,7 @@ use crate::{
     account::{Account, Credentials},
     api::{account::AccountApi, orders::OrderResponse, Markets, Orders},
     core::chain::Chain,
-    error::{ClobError, Result},
+    error::ClobError,
     request::{AuthMode, Request},
     types::*,
     utils::{calculate_order_amounts, current_timestamp, generate_salt},
@@ -24,7 +24,10 @@ pub struct Clob {
 
 impl Clob {
     /// Create a new CLOB client with default configuration
-    pub fn new(private_key: impl Into<String>, credentials: Credentials) -> Result<Self> {
+    pub fn new(
+        private_key: impl Into<String>,
+        credentials: Credentials,
+    ) -> Result<Self, ClobError> {
         Self::builder(private_key, credentials)?.build()
     }
 
@@ -32,13 +35,13 @@ impl Clob {
     pub fn builder(
         private_key: impl Into<String>,
         credentials: Credentials,
-    ) -> Result<ClobBuilder> {
+    ) -> Result<ClobBuilder, ClobError> {
         let account = Account::new(private_key, credentials)?;
         Ok(ClobBuilder::new(account))
     }
 
     /// Create a new CLOB client from an Account
-    pub fn from_account(account: Account) -> Result<Self> {
+    pub fn from_account(account: Account) -> Result<Self, ClobError> {
         ClobBuilder::new(account).build()
     }
 
@@ -81,7 +84,7 @@ impl Clob {
     }
 
     /// Create an unsigned order from parameters
-    pub async fn create_order(&self, params: &CreateOrderParams) -> Result<Order> {
+    pub async fn create_order(&self, params: &CreateOrderParams) -> Result<Order, ClobError> {
         params.validate()?;
 
         // Fetch market info for tick size
@@ -123,12 +126,12 @@ impl Clob {
     }
 
     /// Sign an order
-    pub async fn sign_order(&self, order: &Order) -> Result<SignedOrder> {
+    pub async fn sign_order(&self, order: &Order) -> Result<SignedOrder, ClobError> {
         self.account.sign_order(order, self.chain_id).await
     }
 
     /// Post a signed order
-    pub async fn post_order(&self, signed_order: &SignedOrder) -> Result<OrderResponse> {
+    pub async fn post_order(&self, signed_order: &SignedOrder) -> Result<OrderResponse, ClobError> {
         let auth = AuthMode::L2 {
             address: self.account.address(),
             credentials: self.account.credentials().clone(),
@@ -148,7 +151,10 @@ impl Clob {
     }
 
     /// Create, sign, and post an order (convenience method)
-    pub async fn place_order(&self, params: &CreateOrderParams) -> Result<OrderResponse> {
+    pub async fn place_order(
+        &self,
+        params: &CreateOrderParams,
+    ) -> Result<OrderResponse, ClobError> {
         let order = self.create_order(params).await?;
         let signed_order = self.sign_order(&order).await?;
         self.post_order(&signed_order).await
@@ -166,7 +172,7 @@ pub struct CreateOrderParams {
 }
 
 impl CreateOrderParams {
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self) -> Result<(), ClobError> {
         if self.price <= 0.0 || self.price > 1.0 {
             return Err(ClobError::validation(format!(
                 "Price must be between 0.0 and 1.0, got {}",
@@ -232,7 +238,7 @@ impl ClobBuilder {
     }
 
     /// Build the CLOB client
-    pub fn build(self) -> Result<Clob> {
+    pub fn build(self) -> Result<Clob, ClobError> {
         let HttpClient { client, base_url } = HttpClientBuilder::new(&self.base_url)
             .timeout_ms(self.timeout_ms)
             .pool_size(self.pool_size)

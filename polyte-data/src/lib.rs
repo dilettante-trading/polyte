@@ -39,4 +39,4 @@ pub mod error;
 pub mod types;
 
 pub use client::{DataApi, DataApiBuilder};
-pub use error::{DataApiError, Result};
+pub use error::DataApiError;

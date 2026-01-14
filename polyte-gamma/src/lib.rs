@@ -49,4 +49,4 @@ pub mod error;
 pub mod types;
 
 pub use client::{Gamma, GammaBuilder};
-pub use error::{GammaError, Result};
+pub use error::GammaError;

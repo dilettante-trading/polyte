@@ -2,10 +2,7 @@ use polyte_core::RequestError;
 use reqwest::Client;
 use url::Url;
 
-use crate::{
-    error::{DataApiError, Result},
-    types::OpenInterest,
-};
+use crate::{error::DataApiError, types::OpenInterest};
 
 /// OpenInterest namespace for open interest operations
 #[derive(Clone)]
@@ -43,7 +40,7 @@ impl GetOpenInterest {
     }
 
     /// Execute the request
-    pub async fn send(self) -> Result<Vec<OpenInterest>> {
+    pub async fn send(self) -> Result<Vec<OpenInterest>, DataApiError> {
         let url = self.base_url.join("/oi")?;
         let mut request = self.client.get(url);
 
