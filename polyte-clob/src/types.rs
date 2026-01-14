@@ -40,6 +40,17 @@ pub enum OrderKind {
     Fak,
 }
 
+impl fmt::Display for OrderKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Gtc => write!(f, "GTC"),
+            Self::Fok => write!(f, "FOK"),
+            Self::Gtd => write!(f, "GTD"),
+            Self::Fak => write!(f, "FAK"),
+        }
+    }
+}
+
 /// Signature type
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -48,6 +59,16 @@ pub enum SignatureType {
     Eoa,
     PolyProxy,
     PolyGnosisSafe,
+}
+
+impl fmt::Display for SignatureType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Eoa => write!(f, "eoa"),
+            Self::PolyProxy => write!(f, "poly-proxy"),
+            Self::PolyGnosisSafe => write!(f, "poly-gnosis-safe"),
+        }
+    }
 }
 
 /// Tick size (minimum price increment)
