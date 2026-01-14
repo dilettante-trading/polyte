@@ -32,6 +32,18 @@
 //!         .send()
 //!         .await?;
 //!
+//!     // Use Data API to get user positions
+//!     let positions = polymarket.data
+//!         .user("0x1234567890123456789012345678901234567890")
+//!         .list_positions()
+//!         .limit(10)
+//!         .send()
+//!         .await?;
+//!
+//!     for position in &positions {
+//!         println!("Position: {} - size: {}", position.title, position.size);
+//!     }
+//!
 //!     // Use CLOB API to place an order
 //!     if let Some(first_market) = markets.first() {
 //!         if let Some(token) = first_market.tokens.first() {
@@ -54,13 +66,16 @@
 
 #[cfg(feature = "clob")]
 pub use polyte_clob;
-#[cfg(all(feature = "clob", feature = "gamma"))]
-use polyte_clob::{Account, Chain, Clob, ClobBuilder};
 #[cfg(feature = "data")]
 pub use polyte_data;
 #[cfg(feature = "gamma")]
 pub use polyte_gamma;
-#[cfg(all(feature = "clob", feature = "gamma"))]
+
+#[cfg(all(feature = "clob", feature = "gamma", feature = "data"))]
+use polyte_clob::{Account, Chain, Clob, ClobBuilder};
+#[cfg(all(feature = "clob", feature = "gamma", feature = "data"))]
+use polyte_data::{DataApi, DataApiBuilder};
+#[cfg(all(feature = "clob", feature = "gamma", feature = "data"))]
 use polyte_gamma::Gamma;
 
 /// Prelude module for convenient imports
@@ -104,16 +119,18 @@ pub enum PolymarketError {
 }
 
 /// Unified Polymarket client
-#[cfg(all(feature = "clob", feature = "gamma"))]
+#[cfg(all(feature = "clob", feature = "gamma", feature = "data"))]
 #[derive(Clone)]
 pub struct Polymarket {
     /// CLOB (trading) API client
     pub clob: Clob,
     /// Gamma (market data) API client
     pub gamma: Gamma,
+    /// Data API client (user positions, trades, activity)
+    pub data: DataApi,
 }
 
-#[cfg(all(feature = "clob", feature = "gamma"))]
+#[cfg(all(feature = "clob", feature = "gamma", feature = "data"))]
 impl Polymarket {
     /// Create a new client from an Account
     pub fn new(account: Account) -> Result<Self, PolymarketError> {
@@ -127,21 +144,23 @@ impl Polymarket {
 }
 
 /// Builder for Polymarket client
-#[cfg(all(feature = "clob", feature = "gamma"))]
+#[cfg(all(feature = "clob", feature = "gamma", feature = "data"))]
 pub struct PolymarketBuilder {
     clob_base_url: Option<String>,
     gamma_base_url: Option<String>,
+    data_base_url: Option<String>,
     timeout_ms: Option<u64>,
     chain: Option<Chain>,
     account: Account,
 }
 
-#[cfg(all(feature = "clob", feature = "gamma"))]
+#[cfg(all(feature = "clob", feature = "gamma", feature = "data"))]
 impl PolymarketBuilder {
     fn new(account: Account) -> Self {
         Self {
             clob_base_url: None,
             gamma_base_url: None,
+            data_base_url: None,
             timeout_ms: None,
             chain: None,
             account,
@@ -157,6 +176,12 @@ impl PolymarketBuilder {
     /// Set Gamma base URL
     pub fn gamma_base_url(mut self, url: impl Into<String>) -> Self {
         self.gamma_base_url = Some(url.into());
+        self
+    }
+
+    /// Set Data API base URL
+    pub fn data_base_url(mut self, url: impl Into<String>) -> Self {
+        self.data_base_url = Some(url.into());
         self
     }
 
@@ -201,6 +226,18 @@ impl PolymarketBuilder {
 
         let clob = clob_builder.build()?;
 
-        Ok(Polymarket { clob, gamma })
+        // Build Data API client
+        let mut data_builder = DataApiBuilder::default();
+
+        if let Some(url) = self.data_base_url {
+            data_builder = data_builder.base_url(url);
+        }
+        if let Some(timeout) = self.timeout_ms {
+            data_builder = data_builder.timeout_ms(timeout);
+        }
+
+        let data = data_builder.build()?;
+
+        Ok(Polymarket { clob, gamma, data })
     }
 }
