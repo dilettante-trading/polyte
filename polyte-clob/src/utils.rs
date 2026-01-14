@@ -1,6 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rand::Rng;
+use rust_decimal::{prelude::ToPrimitive, Decimal, RoundingStrategy};
 
 use crate::types::{OrderSide, TickSize};
 
@@ -12,7 +13,23 @@ pub fn current_timestamp() -> u64 {
         .as_secs()
 }
 
-/// Calculate maker and taker amounts for an order
+/// Calculate maker and taker amounts for an order using precise decimal arithmetic.
+///
+/// This function uses `rust_decimal` to avoid floating-point precision issues
+/// that can occur with f64 arithmetic in financial calculations.
+///
+/// # Arguments
+///
+/// * `price` - Order price (0.0 to 1.0)
+/// * `size` - Order size in shares
+/// * `side` - Buy or Sell
+/// * `tick_size` - Minimum price increment for rounding
+///
+/// # Returns
+///
+/// A tuple of (maker_amount, taker_amount) as strings suitable for the CLOB API.
+/// - For BUY orders: maker = cost (USDC), taker = shares
+/// - For SELL orders: maker = shares, taker = cost (USDC)
 pub fn calculate_order_amounts(
     price: f64,
     size: f64,
@@ -23,19 +40,31 @@ pub fn calculate_order_amounts(
 
     let tick_decimals = tick_size.decimals();
 
-    // Round price to tick size
-    let price_rounded = round_to_decimals(price, tick_decimals);
+    // Convert to Decimal for precise arithmetic
+    // Using from_f64_retain to preserve the exact f64 representation
+    let price_decimal = Decimal::try_from(price).unwrap_or_else(|_| {
+        // Fallback: parse from string representation for edge cases
+        Decimal::from_str_exact(&price.to_string()).unwrap_or(Decimal::ZERO)
+    });
+    let size_decimal = Decimal::try_from(size)
+        .unwrap_or_else(|_| Decimal::from_str_exact(&size.to_string()).unwrap_or(Decimal::ZERO));
+
+    // Round price to tick size using banker's rounding (round half to even)
+    let price_rounded =
+        price_decimal.round_dp_with_strategy(tick_decimals, RoundingStrategy::MidpointNearestEven);
 
     // Round size to 2 decimals
-    let size_rounded = round_to_decimals(size, SIZE_DECIMALS);
+    let size_rounded =
+        size_decimal.round_dp_with_strategy(SIZE_DECIMALS, RoundingStrategy::MidpointNearestEven);
 
-    // Calculate cost
+    // Calculate cost with precise decimal multiplication
     let cost = price_rounded * size_rounded;
-    let cost_rounded = round_to_decimals(cost, tick_decimals);
+    let cost_rounded =
+        cost.round_dp_with_strategy(SIZE_DECIMALS, RoundingStrategy::MidpointNearestEven);
 
-    // Convert to raw amounts (no decimals)
-    let share_amount = to_raw_amount(size_rounded, SIZE_DECIMALS);
-    let cost_amount = to_raw_amount(cost_rounded, SIZE_DECIMALS);
+    // Convert to raw amounts (multiply by 10^decimals and take integer part)
+    let share_amount = decimal_to_raw_amount(size_rounded, SIZE_DECIMALS);
+    let cost_amount = decimal_to_raw_amount(cost_rounded, SIZE_DECIMALS);
 
     match side {
         OrderSide::Buy => {
@@ -49,17 +78,16 @@ pub fn calculate_order_amounts(
     }
 }
 
-/// Round a float to specified decimal places
-fn round_to_decimals(value: f64, decimals: u32) -> f64 {
-    let multiplier = 10_f64.powi(decimals as i32);
-    (value * multiplier).round() / multiplier
-}
-
-/// Convert float to raw integer amount
-fn to_raw_amount(value: f64, decimals: u32) -> String {
-    let multiplier = 10_f64.powi(decimals as i32);
-    let raw = (value * multiplier).floor() as u128;
-    raw.to_string()
+/// Convert a Decimal to a raw integer amount string.
+///
+/// Multiplies by 10^decimals and takes the floor to get the integer representation.
+fn decimal_to_raw_amount(value: Decimal, decimals: u32) -> String {
+    let multiplier = Decimal::from(10u64.pow(decimals));
+    let raw = (value * multiplier).floor();
+    // Convert to u128 for the string representation
+    raw.to_u128()
+        .map(|n| n.to_string())
+        .unwrap_or_else(|| raw.to_string().split('.').next().unwrap_or("0").to_string())
 }
 
 /// Generate random salt for orders
@@ -140,8 +168,9 @@ mod tests {
         let (maker, taker) =
             calculate_order_amounts(0.50, 100.567, OrderSide::Buy, TickSize::Hundredth);
 
-        // price=0.50, size rounds to 100.57 => cost=50.285 rounds to 50.29
-        assert_eq!(maker, "5029");
+        // price=0.50, size rounds to 100.57 => cost=50.285
+        // With banker's rounding: 50.285 rounds to 50.28 (8 is even)
+        assert_eq!(maker, "5028");
         assert_eq!(taker, "10057");
     }
 
@@ -170,8 +199,9 @@ mod tests {
         let (maker, taker) =
             calculate_order_amounts(0.50, 0.01, OrderSide::Buy, TickSize::Hundredth);
 
-        // price=0.50, size=0.01 => cost=0.005 rounds to 0.01
-        assert_eq!(maker, "1");
+        // price=0.50, size=0.01 => cost=0.005
+        // With banker's rounding: 0.005 rounds to 0.00 (0 is even)
+        assert_eq!(maker, "0");
         assert_eq!(taker, "1");
     }
 
@@ -241,15 +271,23 @@ mod tests {
     }
 
     #[test]
-    fn test_round_to_decimals() {
-        // Test through calculate_order_amounts behavior
-        // 0.555 with Hundredth should round to 0.56
+    fn test_rounding_behavior() {
+        // Test banker's rounding (round half to even)
+        // 0.555 rounds to 0.56 (6 is even)
         let (maker, _) = calculate_order_amounts(0.555, 100.0, OrderSide::Buy, TickSize::Hundredth);
         assert_eq!(maker, "5600"); // 0.56 * 100 = 56.0 => 5600
 
-        // 0.554 with Hundredth should round to 0.55
+        // 0.554 rounds down to 0.55
         let (maker, _) = calculate_order_amounts(0.554, 100.0, OrderSide::Buy, TickSize::Hundredth);
         assert_eq!(maker, "5500"); // 0.55 * 100 = 55.0 => 5500
+
+        // 0.545 rounds to 0.54 (4 is even) - banker's rounding
+        let (maker, _) = calculate_order_amounts(0.545, 100.0, OrderSide::Buy, TickSize::Hundredth);
+        assert_eq!(maker, "5400"); // 0.54 * 100 = 54.0 => 5400
+
+        // 0.556 rounds up to 0.56
+        let (maker, _) = calculate_order_amounts(0.556, 100.0, OrderSide::Buy, TickSize::Hundredth);
+        assert_eq!(maker, "5600"); // 0.56 * 100 = 56.0 => 5600
     }
 
     #[test]
@@ -262,5 +300,31 @@ mod tests {
 
         assert_eq!(buy_maker, sell_taker, "Buy maker should equal sell taker");
         assert_eq!(buy_taker, sell_maker, "Buy taker should equal sell maker");
+    }
+
+    #[test]
+    fn test_decimal_precision() {
+        // This test verifies that decimal arithmetic is precise.
+        // The classic f64 precision issue: 0.1 + 0.2 != 0.3 in IEEE 754
+        // Our implementation uses rust_decimal to avoid such issues.
+
+        // Test a value that causes f64 precision issues
+        // 0.33 * 100.0 = 33.0 exactly, but intermediate f64 ops can introduce error
+        let (maker, taker) =
+            calculate_order_amounts(0.33, 100.0, OrderSide::Buy, TickSize::Hundredth);
+        assert_eq!(maker, "3300");
+        assert_eq!(taker, "10000");
+
+        // Another precision-sensitive case: 0.07 * 1000.0
+        let (maker, taker) =
+            calculate_order_amounts(0.07, 1000.0, OrderSide::Buy, TickSize::Hundredth);
+        assert_eq!(maker, "7000"); // Should be exactly 7000, not 6999 or 7001
+        assert_eq!(taker, "100000");
+
+        // Test with small values that stress precision
+        let (maker, taker) =
+            calculate_order_amounts(0.01, 0.01, OrderSide::Buy, TickSize::Hundredth);
+        assert_eq!(maker, "0"); // 0.01 * 0.01 = 0.0001, rounds to 0.00 => 0
+        assert_eq!(taker, "1");
     }
 }

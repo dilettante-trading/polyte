@@ -1,6 +1,8 @@
 use polyte_core::ApiError;
 use thiserror::Error;
 
+use crate::types::ParseTickSizeError;
+
 /// Result type for CLOB operations
 pub type Result<T> = std::result::Result<T, ClobError>;
 
@@ -18,6 +20,10 @@ pub enum ClobError {
     /// Alloy (Ethereum library) error
     #[error("Alloy error: {0}")]
     Alloy(String),
+
+    /// Invalid tick size
+    #[error(transparent)]
+    InvalidTickSize(#[from] ParseTickSizeError),
 }
 
 impl ClobError {

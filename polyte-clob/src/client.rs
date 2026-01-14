@@ -89,7 +89,7 @@ impl Clob {
 
         // Fetch market info for tick size
         let market = self.markets().get(&params.token_id).send().await?;
-        let tick_size = TickSize::from(market.minimum_tick_size);
+        let tick_size = TickSize::try_from(market.minimum_tick_size)?;
 
         // Get fee rate
         let fee_rate_response: serde_json::Value = self

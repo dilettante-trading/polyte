@@ -2,6 +2,12 @@ use std::fmt;
 
 use alloy::primitives::Address;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+/// Error when parsing a tick size from an invalid value
+#[derive(Error, Debug, Clone, PartialEq)]
+#[error("invalid tick size: {0}. Valid values are 0.1, 0.01, 0.001, or 0.0001")]
+pub struct ParseTickSizeError(String);
 
 /// Order side (buy or sell)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,32 +83,44 @@ impl TickSize {
     }
 }
 
-impl From<&str> for TickSize {
-    fn from(s: &str) -> Self {
+impl TryFrom<&str> for TickSize {
+    type Error = ParseTickSizeError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
         match s {
-            "0.1" => Self::Tenth,
-            "0.01" => Self::Hundredth,
-            "0.001" => Self::Thousandth,
-            "0.0001" => Self::TenThousandth,
-            _ => Self::Hundredth, // Default
+            "0.1" => Ok(Self::Tenth),
+            "0.01" => Ok(Self::Hundredth),
+            "0.001" => Ok(Self::Thousandth),
+            "0.0001" => Ok(Self::TenThousandth),
+            _ => Err(ParseTickSizeError(s.to_string())),
         }
     }
 }
 
-impl From<f64> for TickSize {
-    fn from(n: f64) -> Self {
+impl TryFrom<f64> for TickSize {
+    type Error = ParseTickSizeError;
+
+    fn try_from(n: f64) -> Result<Self, Self::Error> {
         const EPSILON: f64 = 1e-10;
         if (n - 0.1).abs() < EPSILON {
-            Self::Tenth
+            Ok(Self::Tenth)
         } else if (n - 0.01).abs() < EPSILON {
-            Self::Hundredth
+            Ok(Self::Hundredth)
         } else if (n - 0.001).abs() < EPSILON {
-            Self::Thousandth
+            Ok(Self::Thousandth)
         } else if (n - 0.0001).abs() < EPSILON {
-            Self::TenThousandth
+            Ok(Self::TenThousandth)
         } else {
-            Self::Hundredth // Default
+            Err(ParseTickSizeError(n.to_string()))
         }
+    }
+}
+
+impl std::str::FromStr for TickSize {
+    type Err = ParseTickSizeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::try_from(s)
     }
 }
 
