@@ -75,6 +75,18 @@ impl Markets {
         )
         .query("token_id", token_id.into())
     }
+
+    /// Get historical prices for a token
+    pub fn prices_history(&self, token_id: impl Into<String>) -> Request<PricesHistoryResponse> {
+        Request::get(
+            self.client.clone(),
+            self.base_url.clone(),
+            "/prices-history",
+            AuthMode::None,
+            self.chain_id,
+        )
+        .query("market", token_id.into())
+    }
 }
 
 /// Market information
@@ -142,4 +154,21 @@ pub struct PriceResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MidpointResponse {
     pub mid: String,
+}
+
+/// A single point in the price history timeseries
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PriceHistoryPoint {
+    /// Unix timestamp (seconds)
+    #[serde(rename = "t")]
+    pub timestamp: i64,
+    /// Price at this point in time
+    #[serde(rename = "p")]
+    pub price: f64,
+}
+
+/// Response from the prices-history endpoint
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PricesHistoryResponse {
+    pub history: Vec<PriceHistoryPoint>,
 }
