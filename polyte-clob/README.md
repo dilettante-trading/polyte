@@ -32,7 +32,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let account = Account::from_env()?;
 
     // Create CLOB client
-    let clob = ClobBuilder::new(account)
+    let clob = ClobBuilder::new()
+        .with_account(account)
         .chain(Chain::PolygonMainnet)
         .build()?;
 

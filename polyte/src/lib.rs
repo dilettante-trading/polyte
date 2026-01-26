@@ -212,7 +212,7 @@ impl PolymarketBuilder {
         let gamma = gamma_builder.build()?;
 
         // Build CLOB client
-        let mut clob_builder = ClobBuilder::new(self.account);
+        let mut clob_builder = ClobBuilder::new().with_account(self.account);
 
         if let Some(url) = self.clob_base_url {
             clob_builder = clob_builder.base_url(url);

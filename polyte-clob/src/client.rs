@@ -19,7 +19,7 @@ pub struct Clob {
     pub(crate) client: Client,
     pub(crate) base_url: Url,
     pub(crate) chain_id: u64,
-    pub(crate) account: Account,
+    pub(crate) account: Option<Account>,
 }
 
 impl Clob {
@@ -31,23 +31,28 @@ impl Clob {
         Self::builder(private_key, credentials)?.build()
     }
 
+    /// Create a new public CLOB client (read-only)
+    pub fn public() -> Self {
+        ClobBuilder::new().build().unwrap() // unwrap safe because default build never fails
+    }
+
     /// Create a new CLOB client builder with required authentication
     pub fn builder(
         private_key: impl Into<String>,
         credentials: Credentials,
     ) -> Result<ClobBuilder, ClobError> {
         let account = Account::new(private_key, credentials)?;
-        Ok(ClobBuilder::new(account))
+        Ok(ClobBuilder::new().with_account(account))
     }
 
     /// Create a new CLOB client from an Account
     pub fn from_account(account: Account) -> Result<Self, ClobError> {
-        ClobBuilder::new(account).build()
+        ClobBuilder::new().with_account(account).build()
     }
 
     /// Get a reference to the account
-    pub fn account(&self) -> &Account {
-        &self.account
+    pub fn account(&self) -> Option<&Account> {
+        self.account.as_ref()
     }
 
     /// Get markets namespace
@@ -60,31 +65,46 @@ impl Clob {
     }
 
     /// Get orders namespace
-    pub fn orders(&self) -> Orders {
-        Orders {
+    pub fn orders(&self) -> Result<Orders, ClobError> {
+        let account = self
+            .account
+            .as_ref()
+            .ok_or_else(|| ClobError::validation("Account required for orders API"))?;
+
+        Ok(Orders {
             client: self.client.clone(),
             base_url: self.base_url.clone(),
-            wallet: self.account.wallet().clone(),
-            credentials: self.account.credentials().clone(),
-            signer: self.account.signer().clone(),
+            wallet: account.wallet().clone(),
+            credentials: account.credentials().clone(),
+            signer: account.signer().clone(),
             chain_id: self.chain_id,
-        }
+        })
     }
 
     /// Get account API namespace
-    pub fn account_api(&self) -> AccountApi {
-        AccountApi {
+    pub fn account_api(&self) -> Result<AccountApi, ClobError> {
+        let account = self
+            .account
+            .as_ref()
+            .ok_or_else(|| ClobError::validation("Account required for account API"))?;
+
+        Ok(AccountApi {
             client: self.client.clone(),
             base_url: self.base_url.clone(),
-            wallet: self.account.wallet().clone(),
-            credentials: self.account.credentials().clone(),
-            signer: self.account.signer().clone(),
+            wallet: account.wallet().clone(),
+            credentials: account.credentials().clone(),
+            signer: account.signer().clone(),
             chain_id: self.chain_id,
-        }
+        })
     }
 
     /// Create an unsigned order from parameters
     pub async fn create_order(&self, params: &CreateOrderParams) -> Result<Order, ClobError> {
+        let account = self
+            .account
+            .as_ref()
+            .ok_or_else(|| ClobError::validation("Account required to create order"))?;
+
         params.validate()?;
 
         // Fetch market info for tick size
@@ -111,8 +131,8 @@ impl Clob {
 
         Ok(Order {
             salt: generate_salt(),
-            maker: self.account.address(),
-            signer: self.account.address(),
+            maker: account.address(),
+            signer: account.address(),
             taker: alloy::primitives::Address::ZERO,
             token_id: params.token_id.clone(),
             maker_amount,
@@ -127,15 +147,24 @@ impl Clob {
 
     /// Sign an order
     pub async fn sign_order(&self, order: &Order) -> Result<SignedOrder, ClobError> {
-        self.account.sign_order(order, self.chain_id).await
+        let account = self
+            .account
+            .as_ref()
+            .ok_or_else(|| ClobError::validation("Account required to sign order"))?;
+        account.sign_order(order, self.chain_id).await
     }
 
     /// Post a signed order
     pub async fn post_order(&self, signed_order: &SignedOrder) -> Result<OrderResponse, ClobError> {
+        let account = self
+            .account
+            .as_ref()
+            .ok_or_else(|| ClobError::validation("Account required to post order"))?;
+
         let auth = AuthMode::L2 {
-            address: self.account.address(),
-            credentials: self.account.credentials().clone(),
-            signer: self.account.signer().clone(),
+            address: account.address(),
+            credentials: account.credentials().clone(),
+            signer: account.signer().clone(),
         };
 
         Request::post(
@@ -198,19 +227,25 @@ pub struct ClobBuilder {
     timeout_ms: u64,
     pool_size: usize,
     chain: Chain,
-    account: Account,
+    account: Option<Account>,
 }
 
 impl ClobBuilder {
-    /// Create a new builder with an Account
-    pub fn new(account: Account) -> Self {
+    /// Create a new builder with default configuration
+    pub fn new() -> Self {
         Self {
             base_url: DEFAULT_BASE_URL.to_string(),
             timeout_ms: DEFAULT_TIMEOUT_MS,
             pool_size: DEFAULT_POOL_SIZE,
             chain: Chain::PolygonMainnet,
-            account,
+            account: None,
         }
+    }
+
+    /// Set account for the client
+    pub fn with_account(mut self, account: Account) -> Self {
+        self.account = Some(account);
+        self
     }
 
     /// Set base URL for the API
@@ -250,5 +285,11 @@ impl ClobBuilder {
             chain_id: self.chain.chain_id(),
             account: self.account,
         })
+    }
+}
+
+impl Default for ClobBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
