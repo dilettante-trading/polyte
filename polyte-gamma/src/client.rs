@@ -5,7 +5,7 @@ use url::Url;
 use crate::{
     api::{
         comments::Comments, events::Events, markets::Markets, series::Series, sports::Sports,
-        tags::Tags,
+        tags::Tags, user::User,
     },
     error::GammaError,
 };
@@ -73,6 +73,14 @@ impl Gamma {
     /// Get comments namespace
     pub fn comments(&self) -> Comments {
         Comments {
+            client: self.client.clone(),
+            base_url: self.base_url.clone(),
+        }
+    }
+
+    /// Get user namespace
+    pub fn user(&self) -> User {
+        User {
             client: self.client.clone(),
             base_url: self.base_url.clone(),
         }
