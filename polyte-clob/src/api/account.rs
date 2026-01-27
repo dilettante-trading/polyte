@@ -1,4 +1,5 @@
 use alloy::primitives::Address;
+use std::collections::HashMap;
 use polyte_core::QueryBuilder;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -99,5 +100,5 @@ pub struct Trade {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BalanceAllowanceResponse {
     pub balance: String,
-    pub allowance: String,
+    pub allowances: HashMap<Address, String>,
 }
