@@ -41,6 +41,22 @@ impl AccountApi {
         .query("token_id", token_id.into())
     }
 
+    pub fn usdc_balance(&self) -> Request<BalanceAllowanceResponse> {
+         Request::get(
+            self.client.clone(),
+            self.base_url.clone(),
+            "/balance-allowance",
+            AuthMode::L2 {
+                address: self.wallet.clone().address(),
+                credentials: self.credentials.clone(),
+                signer: self.signer.clone(),
+            },
+            self.chain_id,
+        )
+        .query("asset_type", "COLLATERAL")
+        .query("signature_type", 1)
+    }
+
     /// Get trades
     pub fn trades(&self) -> Request<Vec<Trade>> {
         Request::get(
