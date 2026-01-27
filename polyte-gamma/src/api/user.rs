@@ -20,7 +20,7 @@ impl User {
             self.base_url.clone(),
             "/public-profile",
         )
-        .query("wallet_address", signer_address.into())
+        .query("address", signer_address.into())
     }
 }
 
