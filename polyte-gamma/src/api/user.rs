@@ -29,6 +29,7 @@ impl User {
 #[serde(rename_all = "camelCase")]
 pub struct UserResponse {
     /// The user's proxy wallet address (Treasury)
+    #[serde(rename = "proxyWallet")]
     pub proxy: Option<String>,
     /// The user's EOA address (Signer)
     pub address: Option<String>,
