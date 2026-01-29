@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Market data from Gamma API
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Market {
     pub id: String,
     pub condition_id: String,
@@ -24,9 +24,13 @@ pub struct Market {
     pub min_incentive_size: Option<String>,
     pub max_incentive_spread: Option<String>,
     pub submitted_by: Option<String>,
+    #[serde(rename = "volume24hr")]  // lowercase 'hr' to match API
     pub volume_24hr: Option<f64>,
+    #[serde(rename = "volume1wk")]  // lowercase 'wk' to match API
     pub volume_1wk: Option<f64>,
+    #[serde(rename = "volume1mo")]  // lowercase 'mo' to match API
     pub volume_1mo: Option<f64>,
+    #[serde(rename = "volume1yr")]  // lowercase 'yr' to match API
     pub volume_1yr: Option<f64>,
     pub liquidity: Option<String>,
     #[serde(default)]
@@ -98,13 +102,21 @@ pub struct Market {
     pub uma_bond: Option<String>,
     pub uma_reward: Option<String>,
     pub fpmm_live: Option<bool>,
+    #[serde(rename = "volume24hrAmm")]  // Match API field names
     pub volume_24hr_amm: Option<f64>,
+    #[serde(rename = "volume1wkAmm")]
     pub volume_1wk_amm: Option<f64>,
+    #[serde(rename = "volume1moAmm")]
     pub volume_1mo_amm: Option<f64>,
+    #[serde(rename = "volume1yrAmm")]
     pub volume_1yr_amm: Option<f64>,
+    #[serde(rename = "volume24hrClob")]
     pub volume_24hr_clob: Option<f64>,
+    #[serde(rename = "volume1wkClob")]
     pub volume_1wk_clob: Option<f64>,
+    #[serde(rename = "volume1moClob")]
     pub volume_1mo_clob: Option<f64>,
+    #[serde(rename = "volume1yrClob")]
     pub volume_1yr_clob: Option<f64>,
     pub volume_amm: Option<f64>,
     pub volume_clob: Option<f64>,
@@ -158,7 +170,7 @@ pub struct Market {
 
 /// Market token (outcome)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct MarketToken {
     pub token_id: String,
     pub outcome: String,
@@ -203,7 +215,7 @@ pub struct Event {
     pub updated_at: Option<String>,
     pub comments_enabled: Option<bool>,
     pub competitive: Option<f64>,
-    #[serde(rename = "volume24h")]
+    #[serde(rename = "volume24h")]  // API uses '24h' not '24hr' for events
     pub volume_24hr: Option<f64>,
     #[serde(rename = "volume1wk")]
     pub volume_1wk: Option<f64>,
