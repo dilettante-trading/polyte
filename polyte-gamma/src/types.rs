@@ -4,7 +4,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Market data from Gamma API
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Market {
     pub id: String,
@@ -13,6 +14,7 @@ pub struct Market {
     pub slug: Option<String>,
     #[serde(default)]
     pub tokens: Vec<MarketToken>,
+    #[cfg_attr(feature = "specta", specta(type = Option<HashMap<String, String>>))]
     pub rewards: Option<HashMap<String, serde_json::Value>>,
     pub minimum_order_size: Option<String>,
     pub minimum_tick_size: Option<String>,
@@ -24,13 +26,13 @@ pub struct Market {
     pub min_incentive_size: Option<String>,
     pub max_incentive_spread: Option<String>,
     pub submitted_by: Option<String>,
-    #[serde(rename = "volume24hr")]  // lowercase 'hr' to match API
+    #[serde(rename = "volume24hr")] // lowercase 'hr' to match API
     pub volume_24hr: Option<f64>,
-    #[serde(rename = "volume1wk")]  // lowercase 'wk' to match API
+    #[serde(rename = "volume1wk")] // lowercase 'wk' to match API
     pub volume_1wk: Option<f64>,
-    #[serde(rename = "volume1mo")]  // lowercase 'mo' to match API
+    #[serde(rename = "volume1mo")] // lowercase 'mo' to match API
     pub volume_1mo: Option<f64>,
-    #[serde(rename = "volume1yr")]  // lowercase 'yr' to match API
+    #[serde(rename = "volume1yr")] // lowercase 'yr' to match API
     pub volume_1yr: Option<f64>,
     pub liquidity: Option<String>,
     #[serde(default)]
@@ -39,6 +41,7 @@ pub struct Market {
     pub neg_risk_market_id: Option<String>,
     pub neg_risk_request_id: Option<String>,
     // Use i64 instead of u64 to prevent sentinel value
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub comment_count: Option<i64>,
     pub twitter_card_image: Option<String>,
     pub resolution_source: Option<String>,
@@ -64,7 +67,9 @@ pub struct Market {
     pub upper_bound_date: Option<String>,
     pub closed: Option<bool>,
     pub market_maker_address: String,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub created_by: Option<i64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub updated_by: Option<i64>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
@@ -76,6 +81,7 @@ pub struct Market {
     pub archived: Option<bool>,
     pub resolved_by: Option<String>,
     pub restricted: Option<bool>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub market_group: Option<i64>,
     pub group_item_title: Option<String>,
     pub group_item_threshold: Option<String>,
@@ -86,6 +92,7 @@ pub struct Market {
     pub enable_order_book: Option<bool>,
     pub order_price_min_tick_size: Option<f64>,
     pub order_min_size: Option<f64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub curation_order: Option<i64>,
     pub volume_num: Option<f64>,
     pub liquidity_num: Option<f64>,
@@ -93,6 +100,7 @@ pub struct Market {
     pub ready_for_cron: Option<bool>,
     pub comments_enabled: Option<bool>,
     pub game_start_time: Option<String>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub seconds_delay: Option<i64>,
     pub clob_token_ids: Option<String>,
     pub disqus_thread: Option<String>,
@@ -102,7 +110,7 @@ pub struct Market {
     pub uma_bond: Option<String>,
     pub uma_reward: Option<String>,
     pub fpmm_live: Option<bool>,
-    #[serde(rename = "volume24hrAmm")]  // Match API field names
+    #[serde(rename = "volume24hrAmm")] // Match API field names
     pub volume_24hr_amm: Option<f64>,
     #[serde(rename = "volume1wkAmm")]
     pub volume_1wk_amm: Option<f64>,
@@ -122,11 +130,15 @@ pub struct Market {
     pub volume_clob: Option<f64>,
     pub liquidity_amm: Option<f64>,
     pub liquidity_clob: Option<f64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub maker_base_fee: Option<i64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub taker_base_fee: Option<i64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub custom_liveness: Option<i64>,
     pub accepting_orders: Option<bool>,
     pub notifications_enabled: Option<bool>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub score: Option<i64>,
     pub creator: Option<String>,
     pub ready: Option<bool>,
@@ -169,7 +181,8 @@ pub struct Market {
 }
 
 /// Market token (outcome)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct MarketToken {
     pub token_id: String,
@@ -178,8 +191,9 @@ pub struct MarketToken {
     pub winner: Option<bool>,
 }
 
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Event {
     pub id: String,
     pub ticker: Option<String>,
@@ -215,7 +229,7 @@ pub struct Event {
     pub updated_at: Option<String>,
     pub comments_enabled: Option<bool>,
     pub competitive: Option<f64>,
-    #[serde(rename = "volume24h")]  // API uses '24h' not '24hr' for events
+    #[serde(rename = "volume24h")] // API uses '24h' not '24hr' for events
     pub volume_24hr: Option<f64>,
     #[serde(rename = "volume1wk")]
     pub volume_1wk: Option<f64>,
@@ -231,6 +245,7 @@ pub struct Event {
     pub liquidity_clob: Option<f64>,
     pub neg_risk: Option<bool>,
     pub neg_risk_market_id: Option<String>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub neg_risk_fee_bips: Option<i64>,
     #[serde(default)]
     pub sub_events: Vec<String>,
@@ -250,6 +265,7 @@ pub struct Event {
     pub automatically_active: Option<bool>,
     pub event_date: Option<String>,
     pub start_time: Option<String>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub event_week: Option<i64>,
     pub series_slug: Option<String>,
     pub score: Option<String>,
@@ -259,7 +275,9 @@ pub struct Event {
     pub ended: Option<bool>,
     pub finished_timestamp: Option<String>,
     pub gmp_chart_mode: Option<String>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub tweet_count: Option<i64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub featured_order: Option<i64>,
     pub estimate_value: Option<bool>,
     pub cant_estimate: Option<bool>,
@@ -274,8 +292,9 @@ pub struct Event {
 }
 
 /// Series information within an event
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct SeriesInfo {
     pub id: String,
     pub slug: String,
@@ -283,8 +302,9 @@ pub struct SeriesInfo {
 }
 
 /// Series data (tournament/season grouping)
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct SeriesData {
     pub id: String,
     pub slug: String,
@@ -305,15 +325,18 @@ pub struct SeriesData {
 }
 
 /// Tag for categorizing markets/events
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Tag {
     pub id: String,
     pub slug: String,
     pub label: String,
     pub force_show: Option<bool>,
     pub published_at: Option<String>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub created_by: Option<u64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
     pub updated_by: Option<u64>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
@@ -322,9 +345,11 @@ pub struct Tag {
 }
 
 /// Sports metadata
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct SportMetadata {
+    #[cfg_attr(feature = "specta", specta(type = f64))]
     pub id: u64,
     pub sport: String,
     pub image: Option<String>,
@@ -336,9 +361,11 @@ pub struct SportMetadata {
 }
 
 /// Sports team
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Team {
+    #[cfg_attr(feature = "specta", specta(type = f64))]
     pub id: i64,
     pub name: Option<String>,
     pub league: Option<String>,
@@ -351,8 +378,9 @@ pub struct Team {
 }
 
 /// Comment on a market/event/series
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Comment {
     pub id: String,
     pub body: String,
@@ -368,14 +396,18 @@ pub struct Comment {
     pub reactions: Vec<CommentReaction>,
     #[serde(default)]
     pub positions: Vec<CommentPosition>,
+    #[cfg_attr(feature = "specta", specta(type = f64))]
     pub like_count: u32,
+    #[cfg_attr(feature = "specta", specta(type = f64))]
     pub dislike_count: u32,
+    #[cfg_attr(feature = "specta", specta(type = f64))]
     pub reply_count: u32,
 }
 
 /// User who created a comment
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct CommentUser {
     pub id: String,
     pub name: String,
@@ -383,16 +415,18 @@ pub struct CommentUser {
 }
 
 /// Reaction to a comment
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct CommentReaction {
     pub user_id: String,
     pub reaction_type: String,
 }
 
 /// Position held by comment author
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct CommentPosition {
     pub token_id: String,
     pub outcome: String,
@@ -400,15 +434,17 @@ pub struct CommentPosition {
 }
 
 /// Pagination cursor for list operations
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Cursor {
     pub next_cursor: Option<String>,
 }
 
 /// Paginated response wrapper
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct PaginatedResponse<T> {
     pub data: Vec<T>,
     pub next_cursor: Option<String>,

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// User's total position value
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserValue {
     /// User address
@@ -10,6 +11,7 @@ pub struct UserValue {
 }
 
 /// Open interest for a market
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenInterest {
     /// Market condition ID
@@ -19,6 +21,7 @@ pub struct OpenInterest {
 }
 
 /// Sort field options for position queries
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum PositionSortBy {
@@ -59,6 +62,7 @@ impl std::fmt::Display for PositionSortBy {
 }
 
 /// Sort direction for queries
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum SortDirection {
@@ -79,6 +83,7 @@ impl std::fmt::Display for SortDirection {
 }
 
 /// Sort field options for closed position queries
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ClosedPositionSortBy {
@@ -108,8 +113,9 @@ impl std::fmt::Display for ClosedPositionSortBy {
 }
 
 /// Closed position record
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct ClosedPosition {
     /// Proxy wallet address
     pub proxy_wallet: String,
@@ -126,6 +132,7 @@ pub struct ClosedPosition {
     /// Current market price
     pub cur_price: f64,
     /// Timestamp when position was closed
+    #[cfg_attr(feature = "specta", specta(type = f64))]
     pub timestamp: i64,
     /// Market title
     pub title: String,
@@ -148,6 +155,7 @@ pub struct ClosedPosition {
 }
 
 /// Trade side (buy or sell)
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum TradeSide {
@@ -167,6 +175,7 @@ impl std::fmt::Display for TradeSide {
 }
 
 /// Filter type for trade queries
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum TradeFilterType {
@@ -186,8 +195,9 @@ impl std::fmt::Display for TradeFilterType {
 }
 
 /// Trade record
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Trade {
     /// Proxy wallet address
     pub proxy_wallet: String,
@@ -202,6 +212,7 @@ pub struct Trade {
     /// Trade price
     pub price: f64,
     /// Trade timestamp
+    #[cfg_attr(feature = "specta", specta(type = f64))]
     pub timestamp: i64,
     /// Market title
     pub title: String,
@@ -230,6 +241,7 @@ pub struct Trade {
 }
 
 /// Activity type
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum ActivityType {
@@ -261,6 +273,7 @@ impl std::fmt::Display for ActivityType {
 }
 
 /// Sort field options for activity queries
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ActivitySortBy {
@@ -284,12 +297,14 @@ impl std::fmt::Display for ActivitySortBy {
 }
 
 /// User activity record
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Activity {
     /// Proxy wallet address
     pub proxy_wallet: String,
     /// Activity timestamp
+    #[cfg_attr(feature = "specta", specta(type = f64))]
     pub timestamp: i64,
     /// Condition ID of the market
     pub condition_id: String,
@@ -332,8 +347,9 @@ pub struct Activity {
 }
 
 /// User position in a market
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Position {
     /// Proxy wallet address
     pub proxy_wallet: String,

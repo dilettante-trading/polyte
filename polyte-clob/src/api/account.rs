@@ -1,8 +1,8 @@
 use alloy::primitives::Address;
-use std::collections::HashMap;
 use polyte_core::QueryBuilder;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use url::Url;
 
 use crate::{
@@ -43,7 +43,7 @@ impl AccountApi {
     }
 
     pub fn usdc_balance(&self) -> Request<BalanceAllowanceResponse> {
-         Request::get(
+        Request::get(
             self.client.clone(),
             self.base_url.clone(),
             "/balance-allowance",
