@@ -174,7 +174,7 @@ impl std::str::FromStr for TickSize {
 
 /// Unsigned order
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct Order {
     pub salt: String,
     pub maker: Address,
@@ -192,9 +192,58 @@ pub struct Order {
 
 /// Signed order
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(deserialize = "camelCase"))]
+#[serde(rename_all = "camelCase")]
 pub struct SignedOrder {
     #[serde(flatten)]
     pub order: Order,
     pub signature: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::primitives::Address;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_order_serialization() {
+        let order = Order {
+            salt: "123".to_string(),
+            maker: Address::from_str("0x0000000000000000000000000000000000000001").unwrap(),
+            signer: Address::from_str("0x0000000000000000000000000000000000000002").unwrap(),
+            taker: Address::ZERO,
+            token_id: "456".to_string(),
+            maker_amount: "1000".to_string(),
+            taker_amount: "2000".to_string(),
+            expiration: "0".to_string(),
+            nonce: "789".to_string(),
+            fee_rate_bps: "0".to_string(),
+            side: OrderSide::Buy,
+            signature_type: SignatureType::Eoa,
+        };
+
+        let signed_order = SignedOrder {
+            order,
+            signature: "0xabc".to_string(),
+        };
+
+        let json = serde_json::to_value(&signed_order).unwrap();
+
+        // Check camelCase
+        assert!(json.get("makerAmount").is_some());
+        assert!(json.get("takerAmount").is_some());
+        assert!(json.get("tokenId").is_some());
+        assert!(json.get("feeRateBps").is_some());
+        assert!(json.get("signatureType").is_some());
+
+        // Check flattened fields
+        assert!(json.get("signature").is_some());
+        assert!(json.get("salt").is_some());
+
+        // Check values
+        assert_eq!(json["makerAmount"], "1000");
+        assert_eq!(json["side"], "BUY");
+        assert_eq!(json["signatureType"], 0);
+        assert_eq!(json["nonce"], "789");
+    }
 }
