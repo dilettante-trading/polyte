@@ -28,6 +28,17 @@ impl Markets {
         )
     }
 
+    pub fn get_by_token_ids(&self, token_ids: impl Into<Vec<String>>) -> Request<ListMarketsResponse> {
+        Request::get(
+            self.client.clone(),
+            self.base_url.clone(),
+            "/markets",
+            AuthMode::None,
+            self.chain_id,
+        )
+        .query_many("clob_token_ids", token_ids.into())
+    }
+
     /// List all markets
     pub fn list(&self) -> Request<ListMarketsResponse> {
         Request::get(
