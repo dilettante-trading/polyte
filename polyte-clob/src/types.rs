@@ -52,13 +52,40 @@ impl fmt::Display for OrderKind {
 }
 
 /// Signature type
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+/// Signature type
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum SignatureType {
     #[default]
-    Eoa,
-    PolyProxy,
-    PolyGnosisSafe,
+    Eoa = 0,
+    PolyProxy = 1,
+    PolyGnosisSafe = 2,
+}
+
+impl Serialize for SignatureType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u8(*self as u8)
+    }
+}
+
+impl<'de> Deserialize<'de> for SignatureType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let v = u8::deserialize(deserializer)?;
+        match v {
+            0 => Ok(Self::Eoa),
+            1 => Ok(Self::PolyProxy),
+            2 => Ok(Self::PolyGnosisSafe),
+            _ => Err(serde::de::Error::custom(format!(
+                "invalid signature type: {}",
+                v
+            ))),
+        }
+    }
 }
 
 impl fmt::Display for SignatureType {
