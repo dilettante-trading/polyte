@@ -36,7 +36,7 @@ pub fn calculate_order_amounts(
     side: OrderSide,
     tick_size: TickSize,
 ) -> (String, String) {
-    const SIZE_DECIMALS: u32 = 2; // shares are in 2 decimals
+    const SIZE_DECIMALS: u32 = 6; // shares are in 6 decimals
 
     let tick_decimals = tick_size.decimals();
 
@@ -104,9 +104,9 @@ mod tests {
         let (maker, taker) =
             calculate_order_amounts(0.52, 100.0, OrderSide::Buy, TickSize::Hundredth);
 
-        // BUY: maker = cost (5200), taker = shares (10000)
-        assert_eq!(maker, "5200");
-        assert_eq!(taker, "10000");
+        // BUY: maker = cost (52000000), taker = shares (100000000)
+        assert_eq!(maker, "52000000");
+        assert_eq!(taker, "100000000");
     }
 
     #[test]
@@ -114,9 +114,9 @@ mod tests {
         let (maker, taker) =
             calculate_order_amounts(0.52, 100.0, OrderSide::Sell, TickSize::Hundredth);
 
-        // SELL: maker = shares (10000), taker = cost (5200)
-        assert_eq!(maker, "10000");
-        assert_eq!(taker, "5200");
+        // SELL: maker = shares (100000000), taker = cost (52000000)
+        assert_eq!(maker, "100000000");
+        assert_eq!(taker, "52000000");
     }
 
     #[test]
@@ -124,9 +124,9 @@ mod tests {
         let (maker, taker) = calculate_order_amounts(0.5, 50.0, OrderSide::Buy, TickSize::Tenth);
 
         // price=0.5, size=50 => cost=25.0
-        // BUY: maker = cost (2500), taker = shares (5000)
-        assert_eq!(maker, "2500");
-        assert_eq!(taker, "5000");
+        // BUY: maker = cost (25000000), taker = shares (50000000)
+        assert_eq!(maker, "25000000");
+        assert_eq!(taker, "50000000");
     }
 
     #[test]
@@ -135,9 +135,9 @@ mod tests {
             calculate_order_amounts(0.523, 100.0, OrderSide::Buy, TickSize::Thousandth);
 
         // price=0.523, size=100 => cost=52.3
-        // BUY: maker = cost (5230), taker = shares (10000)
-        assert_eq!(maker, "5230");
-        assert_eq!(taker, "10000");
+        // BUY: maker = cost (52300000), taker = shares (100000000)
+        assert_eq!(maker, "52300000");
+        assert_eq!(taker, "100000000");
     }
 
     #[test]
@@ -146,9 +146,9 @@ mod tests {
             calculate_order_amounts(0.5234, 100.0, OrderSide::Buy, TickSize::TenThousandth);
 
         // price=0.5234, size=100 => cost=52.34
-        // BUY: maker = cost (5234), taker = shares (10000)
-        assert_eq!(maker, "5234");
-        assert_eq!(taker, "10000");
+        // BUY: maker = cost (52340000), taker = shares (100000000)
+        assert_eq!(maker, "52340000");
+        assert_eq!(taker, "100000000");
     }
 
     #[test]
@@ -158,20 +158,29 @@ mod tests {
             calculate_order_amounts(0.526, 100.0, OrderSide::Buy, TickSize::Hundredth);
 
         // price rounds to 0.53, size=100 => cost=53.0
-        assert_eq!(maker, "5300");
-        assert_eq!(taker, "10000");
+        assert_eq!(maker, "53000000");
+        assert_eq!(taker, "100000000");
     }
 
     #[test]
     fn test_calculate_order_amounts_size_rounding() {
-        // Size 100.567 should round to 100.57
+        // Size 100.567 should round to 100.57 (now rounds to 100.567000 as decimal places increased)
+        // With SIZE_DECIMALS = 6, size 100.567 is preserved.
         let (maker, taker) =
             calculate_order_amounts(0.50, 100.567, OrderSide::Buy, TickSize::Hundredth);
 
-        // price=0.50, size rounds to 100.57 => cost=50.285
-        // With banker's rounding: 50.285 rounds to 50.28 (8 is even)
-        assert_eq!(maker, "5028");
-        assert_eq!(taker, "10057");
+        // price=0.50, size=100.567 => cost=50.2835
+        // Rounding cost to 6 decimals: 50.283500
+        // Maker = 50.2835 * 10^6 = 50283500
+        // Taker = 100.567 * 10^6 = 100567000
+
+        // Wait, check rounding strategy.
+        // size_rounded = 100.567.
+        // cost = 0.50 * 100.567 = 50.2835.
+        // cost_rounded = 50.283500.
+
+        assert_eq!(maker, "50283500");
+        assert_eq!(taker, "100567000");
     }
 
     #[test]
@@ -180,8 +189,8 @@ mod tests {
             calculate_order_amounts(0.01, 100.0, OrderSide::Buy, TickSize::Hundredth);
 
         // price=0.01, size=100 => cost=1.0
-        assert_eq!(maker, "100");
-        assert_eq!(taker, "10000");
+        assert_eq!(maker, "1000000");
+        assert_eq!(taker, "100000000");
     }
 
     #[test]
@@ -190,8 +199,8 @@ mod tests {
             calculate_order_amounts(0.99, 100.0, OrderSide::Buy, TickSize::Hundredth);
 
         // price=0.99, size=100 => cost=99.0
-        assert_eq!(maker, "9900");
-        assert_eq!(taker, "10000");
+        assert_eq!(maker, "99000000");
+        assert_eq!(taker, "100000000");
     }
 
     #[test]
@@ -200,9 +209,11 @@ mod tests {
             calculate_order_amounts(0.50, 0.01, OrderSide::Buy, TickSize::Hundredth);
 
         // price=0.50, size=0.01 => cost=0.005
-        // With banker's rounding: 0.005 rounds to 0.00 (0 is even)
-        assert_eq!(maker, "0");
-        assert_eq!(taker, "1");
+        // cost rounded to 6 decimals: 0.005000
+        // Maker = 5000
+        // Taker = 10000
+        assert_eq!(maker, "5000");
+        assert_eq!(taker, "10000");
     }
 
     #[test]
@@ -211,8 +222,8 @@ mod tests {
             calculate_order_amounts(0.50, 10000.0, OrderSide::Buy, TickSize::Hundredth);
 
         // price=0.50, size=10000 => cost=5000.0
-        assert_eq!(maker, "500000");
-        assert_eq!(taker, "1000000");
+        assert_eq!(maker, "5000000000");
+        assert_eq!(taker, "10000000000");
     }
 
     #[test]
@@ -275,19 +286,19 @@ mod tests {
         // Test banker's rounding (round half to even)
         // 0.555 rounds to 0.56 (6 is even)
         let (maker, _) = calculate_order_amounts(0.555, 100.0, OrderSide::Buy, TickSize::Hundredth);
-        assert_eq!(maker, "5600"); // 0.56 * 100 = 56.0 => 5600
+        assert_eq!(maker, "56000000"); // 0.56 * 100 = 56.0 => 56000000
 
         // 0.554 rounds down to 0.55
         let (maker, _) = calculate_order_amounts(0.554, 100.0, OrderSide::Buy, TickSize::Hundredth);
-        assert_eq!(maker, "5500"); // 0.55 * 100 = 55.0 => 5500
+        assert_eq!(maker, "55000000"); // 0.55 * 100 = 55.0 => 55000000
 
         // 0.545 rounds to 0.54 (4 is even) - banker's rounding
         let (maker, _) = calculate_order_amounts(0.545, 100.0, OrderSide::Buy, TickSize::Hundredth);
-        assert_eq!(maker, "5400"); // 0.54 * 100 = 54.0 => 5400
+        assert_eq!(maker, "54000000"); // 0.54 * 100 = 54.0 => 54000000
 
         // 0.556 rounds up to 0.56
         let (maker, _) = calculate_order_amounts(0.556, 100.0, OrderSide::Buy, TickSize::Hundredth);
-        assert_eq!(maker, "5600"); // 0.56 * 100 = 56.0 => 5600
+        assert_eq!(maker, "56000000"); // 0.56 * 100 = 56.0 => 56000000
     }
 
     #[test]
@@ -312,19 +323,19 @@ mod tests {
         // 0.33 * 100.0 = 33.0 exactly, but intermediate f64 ops can introduce error
         let (maker, taker) =
             calculate_order_amounts(0.33, 100.0, OrderSide::Buy, TickSize::Hundredth);
-        assert_eq!(maker, "3300");
-        assert_eq!(taker, "10000");
+        assert_eq!(maker, "33000000");
+        assert_eq!(taker, "100000000");
 
         // Another precision-sensitive case: 0.07 * 1000.0
         let (maker, taker) =
             calculate_order_amounts(0.07, 1000.0, OrderSide::Buy, TickSize::Hundredth);
-        assert_eq!(maker, "7000"); // Should be exactly 7000, not 6999 or 7001
-        assert_eq!(taker, "100000");
+        assert_eq!(maker, "70000000"); // Should be exactly 70000000
+        assert_eq!(taker, "1000000000");
 
         // Test with small values that stress precision
         let (maker, taker) =
             calculate_order_amounts(0.01, 0.01, OrderSide::Buy, TickSize::Hundredth);
-        assert_eq!(maker, "0"); // 0.01 * 0.01 = 0.0001, rounds to 0.00 => 0
-        assert_eq!(taker, "1");
+        assert_eq!(maker, "100"); // 0.01 * 0.01 = 0.0001 => 0.0001 * 10^6 = 100
+        assert_eq!(taker, "10000"); // 0.01 * 10^6 = 10000
     }
 }
