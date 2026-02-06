@@ -182,9 +182,6 @@ impl Clob {
             "postOnly": post_only,
         });
 
-        // DEBUG: Print raw request details
-        eprintln!("DEBUG: Posting Order Payload: {}", payload);
-
         Request::post(
             self.client.clone(),
             self.base_url.clone(),
