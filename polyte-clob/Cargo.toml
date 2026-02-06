@@ -48,3 +48,4 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 polyte-gamma = { workspace = true }
 futures-util = { workspace = true }
+dotenvy = "0.15"
