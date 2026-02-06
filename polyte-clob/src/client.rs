@@ -177,7 +177,7 @@ impl Clob {
         // Create the payload wrapping the signed order
         let payload = serde_json::json!({
             "order": signed_order,
-            "owner": account.credentials().key,
+            "owner": account.address(),
             "orderType": order_type,
             "postOnly": post_only,
         });
