@@ -13,7 +13,7 @@
 //! ## Example
 //!
 //! ```no_run
-//! use polyte_clob::{Account, Chain, ClobBuilder, CreateOrderParams, OrderSide};
+//! use polyte_clob::{Account, Chain, ClobBuilder, CreateOrderParams, OrderKind, OrderSide};
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,6 +32,8 @@
 //!         price: 0.52,
 //!         size: 100.0,
 //!         side: OrderSide::Buy,
+//!         order_type: OrderKind::Gtc,
+//!         post_only: false,
 //!         expiration: None,
 //!     };
 //!

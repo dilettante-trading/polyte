@@ -108,7 +108,8 @@ impl Clob {
         params.validate()?;
 
         // Fetch market info for tick size
-        let market = self.markets().get(&params.token_id).send().await?;
+        let markets = self.markets().get_by_token_ids(vec![params.token_id.clone()]).send().await?;
+        let market = markets.data.first().ok_or(ClobError::validation("No markets found"))?;
         let tick_size = TickSize::try_from(market.minimum_tick_size)?;
 
         // Get fee rate
@@ -155,7 +156,13 @@ impl Clob {
     }
 
     /// Post a signed order
-    pub async fn post_order(&self, signed_order: &SignedOrder) -> Result<OrderResponse, ClobError> {
+    /// Post a signed order
+    pub async fn post_order(
+        &self,
+        signed_order: &SignedOrder,
+        order_type: OrderKind,
+        post_only: bool,
+    ) -> Result<OrderResponse, ClobError> {
         let account = self
             .account
             .as_ref()
@@ -167,6 +174,17 @@ impl Clob {
             signer: account.signer().clone(),
         };
 
+        // Create the payload wrapping the signed order
+        let payload = serde_json::json!({
+            "order": signed_order,
+            "owner": account.credentials().key,
+            "orderType": order_type,
+            "postOnly": post_only,
+        });
+
+        // DEBUG: Print raw request details
+        eprintln!("DEBUG: Posting Order Payload: {}", payload);
+
         Request::post(
             self.client.clone(),
             self.base_url.clone(),
@@ -174,7 +192,7 @@ impl Clob {
             auth,
             self.chain_id,
         )
-        .body(signed_order)?
+        .body(&payload)?
         .send()
         .await
     }
@@ -186,7 +204,8 @@ impl Clob {
     ) -> Result<OrderResponse, ClobError> {
         let order = self.create_order(params).await?;
         let signed_order = self.sign_order(&order).await?;
-        self.post_order(&signed_order).await
+        self.post_order(&signed_order, params.order_type, params.post_only)
+            .await
     }
 }
 
@@ -197,6 +216,8 @@ pub struct CreateOrderParams {
     pub price: f64,
     pub size: f64,
     pub side: OrderSide,
+    pub order_type: OrderKind,
+    pub post_only: bool,
     pub expiration: Option<u64>,
 }
 
