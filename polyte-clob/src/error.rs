@@ -33,6 +33,11 @@ impl ClobError {
     pub(crate) fn validation(msg: impl Into<String>) -> Self {
         Self::Api(ApiError::Validation(msg.into()))
     }
+
+    /// Create service error
+    pub(crate) fn service(msg: impl Into<String>) -> Self {
+        Self::Api(ApiError::Validation(msg.into()))
+    }
 }
 
 impl From<alloy::signers::Error> for ClobError {
