@@ -13,35 +13,39 @@
 //! POLYMARKET_API_PASSPHRASE=...
 //! ```
 
+use alloy::primitives::Address;
 use polyte_clob::{Account, Clob, CreateOrderParams, OrderKind, OrderSide};
+use std::str::FromStr;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load .env file if present
     dotenvy::dotenv().ok();
-    
+
     tracing_subscriber::fmt::init();
 
     println!("Loading account from environment variables...");
-    let account = Account::from_env()?;
+    let account = Account::from_env().unwrap();
     println!("Account address: {:?}", account.address());
+    println!("Wallet address: {:?}", account.wallet());
 
-    let clob = Clob::from_account(account)?;
+    let clob = Clob::from_account(account.clone())?;
 
-    // Example token ID - replace with a real one from your market
+    // Example token ID - using an active market (Trump deportation market)
     // You can get token IDs from polyte-gamma or the Polymarket website
-    let token_id =
-        "102559817034631022221500208641784929295731053857601013029449249654006364919935"
-            .to_string();
+    let token_id = "102559817034631022221500208641784929295731053857601013029449249654006364919935"
+        .to_string();
 
     let params = CreateOrderParams {
         token_id,
-        price: 0.5,
-        size: 5.0, // Small size for testing (5 shares = $2.50 at 0.5 price)
+        price: 0.05,
+        size: 100.,
         side: OrderSide::Buy,
         order_type: OrderKind::Gtc,
         post_only: false,
         expiration: None,
+        funder: None, // Proxy address will be fetched from Gamma
+        signature_type: Some(polyte_clob::SignatureType::PolyProxy), // 1 = Proxy
     };
 
     println!("\n📝 Creating order with params:");
@@ -52,13 +56,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   Order Type: {:?}", params.order_type);
 
     println!("\n🔄 Creating and signing order...");
-    let order = clob.create_order(&params).await?;
+    let order = clob.create_order(&params, None).await?;
     println!("   Salt: {}", order.salt);
     println!("   Maker: {:?}", order.maker);
     println!("   Maker Amount: {}", order.maker_amount);
     println!("   Taker Amount: {}", order.taker_amount);
 
     println!("\n✍️ Signing order...");
+
     let signed_order = clob.sign_order(&order).await?;
     println!(
         "   Signature: {}...{}",
