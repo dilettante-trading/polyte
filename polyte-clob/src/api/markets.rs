@@ -100,7 +100,7 @@ impl Markets {
     }
 
     /// Get neg_risk status for a token
-    pub fn neg_risk(&self, token_id: impl Into<String>) -> Request<serde_json::Value> {
+    pub fn neg_risk(&self, token_id: impl Into<String>) -> Request<NegRiskResponse> {
         Request::get(
             self.client.clone(),
             self.base_url.clone(),
@@ -112,7 +112,7 @@ impl Markets {
     }
 
     /// Get tick size for a token
-    pub fn tick_size(&self, token_id: impl Into<String>) -> Request<serde_json::Value> {
+    pub fn tick_size(&self, token_id: impl Into<String>) -> Request<TickSizeResponse> {
         Request::get(
             self.client.clone(),
             self.base_url.clone(),
@@ -206,4 +206,16 @@ pub struct PriceHistoryPoint {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PricesHistoryResponse {
     pub history: Vec<PriceHistoryPoint>,
+}
+
+/// Response from the neg-risk endpoint
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NegRiskResponse {
+    pub neg_risk: bool,
+}
+
+/// Response from the tick-size endpoint
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TickSizeResponse {
+    pub minimum_tick_size: String,
 }

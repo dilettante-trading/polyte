@@ -9,7 +9,7 @@ use crate::{
     error::ClobError,
     request::{AuthMode, Request},
     types::*,
-    utils::{calculate_order_amounts, current_timestamp, generate_salt},
+    utils::{calculate_order_amounts, generate_salt},
 };
 use alloy::primitives::Address;
 
@@ -100,7 +100,11 @@ impl Clob {
     }
 
     /// Create an unsigned order from parameters
-    pub async fn create_order(&self, params: &CreateOrderParams) -> Result<Order, ClobError> {
+    pub async fn create_order(
+        &self,
+        params: &CreateOrderParams,
+        options: Option<PartialCreateOrderOptions>,
+    ) -> Result<Order, ClobError> {
         let account = self
             .account
             .as_ref()
@@ -108,10 +112,24 @@ impl Clob {
 
         params.validate()?;
 
-        // Fetch market info for tick size
-        let markets = self.markets().get_by_token_ids(vec![params.token_id.clone()]).send().await?;
-        let market = markets.data.first().ok_or(ClobError::validation("No markets found"))?;
-        let tick_size = TickSize::try_from(market.minimum_tick_size)?;
+        // Fetch or use provided neg_risk status
+        let neg_risk = if let Some(neg_risk) = options.and_then(|o| o.neg_risk) {
+            neg_risk
+        } else {
+            let neg_risk_resp = self.markets().neg_risk(params.token_id.clone()).send().await?;
+            neg_risk_resp.neg_risk
+        };
+
+        // Fetch or use provided tick size
+        let tick_size = if let Some(tick_size) = options.and_then(|o| o.tick_size) {
+            tick_size
+        } else {
+            let tick_size_resp = self.markets().tick_size(params.token_id.clone()).send().await?;
+            let tick_size_val = tick_size_resp.minimum_tick_size.parse::<f64>().map_err(|e| {
+                ClobError::validation(format!("Invalid minimum_tick_size field: {}", e))
+            })?;
+            TickSize::try_from(tick_size_val)?
+        };
 
         // Get fee rate
         let fee_rate_response: serde_json::Value = self
@@ -140,11 +158,11 @@ impl Clob {
             maker_amount,
             taker_amount,
             expiration: params.expiration.unwrap_or(0).to_string(),
-            nonce: current_timestamp().to_string(),
+            nonce: "0".to_string(),
             fee_rate_bps,
             side: params.side,
             signature_type: params.signature_type.unwrap_or(SignatureType::Eoa),
-            neg_risk: market.neg_risk.unwrap_or(false),
+            neg_risk,
         })
     }
 
@@ -200,8 +218,9 @@ impl Clob {
     pub async fn place_order(
         &self,
         params: &CreateOrderParams,
+        options: Option<PartialCreateOrderOptions>,
     ) -> Result<OrderResponse, ClobError> {
-        let order = self.create_order(params).await?;
+        let order = self.create_order(params, options).await?;
         let signed_order = self.sign_order(&order).await?;
         self.post_order(&signed_order, params.order_type, params.post_only)
             .await
