@@ -12,6 +12,7 @@ use crate::{
     utils::{calculate_order_amounts, generate_salt},
 };
 use alloy::primitives::Address;
+use polyte_gamma::Gamma;
 
 const DEFAULT_BASE_URL: &str = "https://clob.polymarket.com";
 
@@ -21,6 +22,7 @@ pub struct Clob {
     pub(crate) base_url: Url,
     pub(crate) chain_id: u64,
     pub(crate) account: Option<Account>,
+    pub(crate) gamma: Gamma,
 }
 
 impl Clob {
@@ -280,6 +282,7 @@ pub struct ClobBuilder {
     pool_size: usize,
     chain: Chain,
     account: Option<Account>,
+    gamma: Option<Gamma>,
 }
 
 impl ClobBuilder {
@@ -291,6 +294,7 @@ impl ClobBuilder {
             pool_size: DEFAULT_POOL_SIZE,
             chain: Chain::PolygonMainnet,
             account: None,
+            gamma: None,
         }
     }
 
@@ -324,6 +328,12 @@ impl ClobBuilder {
         self
     }
 
+    /// Set Gamma client
+    pub fn gamma(mut self, gamma: Gamma) -> Self {
+        self.gamma = Some(gamma);
+        self
+    }
+
     /// Build the CLOB client
     pub fn build(self) -> Result<Clob, ClobError> {
         let HttpClient { client, base_url } = HttpClientBuilder::new(&self.base_url)
@@ -331,11 +341,22 @@ impl ClobBuilder {
             .pool_size(self.pool_size)
             .build()?;
 
+        let gamma = if let Some(gamma) = self.gamma {
+            gamma
+        } else {
+            polyte_gamma::Gamma::builder()
+                .timeout_ms(self.timeout_ms)
+                .pool_size(self.pool_size)
+                .build()
+                .map_err(|e| ClobError::service(format!("Failed to build default Gamma client: {}", e)))?
+        };
+
         Ok(Clob {
             client,
             base_url,
             chain_id: self.chain.chain_id(),
             account: self.account,
+            gamma,
         })
     }
 }
