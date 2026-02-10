@@ -8,38 +8,46 @@ use alloy::{
 use crate::{
     core::chain::Chain,
     error::ClobError,
-    types::{Order, SignatureType},
+    types::{Order as ClobOrder, SignatureType},
 };
 
-sol! {
-    #[derive(Debug, PartialEq, Eq)]
-    struct EIP712Domain {
-        string name;
-        string version;
-        uint256 chainId;
-        address verifyingContract;
-    }
+mod protocol {
+    use super::*;
+    sol! {
+        #[derive(Debug, PartialEq, Eq)]
+        struct EIP712Domain {
+            string name;
+            string version;
+            uint256 chainId;
+            address verifyingContract;
+        }
 
-    #[derive(Debug, PartialEq, Eq)]
-    struct OrderStruct {
-        uint256 salt;
-        address maker;
-        address signer;
-        address taker;
-        uint256 tokenId;
-        uint256 makerAmount;
-        uint256 takerAmount;
-        uint256 expiration;
-        uint256 nonce;
-        uint256 feeRateBps;
-        uint8 side;
-        uint8 signatureType;
+        #[derive(Debug, PartialEq, Eq)]
+        struct Order {
+            uint256 salt;
+            address maker;
+            address signer;
+            address taker;
+            uint256 tokenId;
+            uint256 makerAmount;
+            uint256 takerAmount;
+            uint256 expiration;
+            uint256 nonce;
+            uint256 feeRateBps;
+            uint8 side;
+            uint8 signatureType;
+        }
+
+        #[derive(Debug, PartialEq, Eq)]
+        struct ClobAuth {
+            string message;
+        }
     }
 }
 
 /// Sign an order with EIP-712
 pub async fn sign_order<S: AlloySigner>(
-    order: &Order,
+    order: &ClobOrder,
     signer: &S,
     chain_id: u64,
 ) -> Result<String, ClobError> {
@@ -47,20 +55,22 @@ pub async fn sign_order<S: AlloySigner>(
         .ok_or_else(|| ClobError::Crypto(format!("Unsupported chain ID: {}", chain_id)))?;
     let contracts = chain.contracts();
 
+    let verifying_contract = if order.neg_risk {
+        contracts.neg_risk_exchange
+    } else {
+        contracts.exchange
+    };
+
     // Create EIP-712 domain
-    let domain = EIP712Domain {
+    let domain = protocol::EIP712Domain {
         name: "Polymarket CTF Exchange".to_string(),
         version: "1".to_string(),
         chainId: U256::from(chain_id),
-        verifyingContract: if order.neg_risk {
-            contracts.neg_risk_exchange
-        } else {
-            contracts.exchange
-        },
+        verifyingContract: verifying_contract,
     };
 
     // Convert order to struct
-    let order_struct = OrderStruct {
+    let order_struct = protocol::Order {
         salt: U256::from_str_radix(&order.salt, 10)
             .map_err(|e| ClobError::Crypto(format!("Invalid salt: {}", e)))?,
         maker: order.maker,
@@ -89,11 +99,9 @@ pub async fn sign_order<S: AlloySigner>(
         },
     };
 
-    // Compute struct hash
-    let struct_hash = keccak256(order_struct.eip712_hash_struct());
-
-    // Compute domain separator
-    let domain_separator = keccak256(domain.eip712_hash_struct());
+    // Compute struct hash and domain separator (Alloy's eip712_hash_struct already performs keccak256)
+    let struct_hash = order_struct.eip712_hash_struct();
+    let domain_separator = domain.eip712_hash_struct();
 
     // Compute final hash
     let mut message = Vec::new();
@@ -115,14 +123,7 @@ pub async fn sign_clob_auth<S: AlloySigner>(
     timestamp: u64,
     nonce: u32,
 ) -> Result<String, ClobError> {
-    sol! {
-        #[derive(Debug, PartialEq, Eq)]
-        struct ClobAuth {
-            string message;
-        }
-    }
-
-    let domain = EIP712Domain {
+    let domain = protocol::EIP712Domain {
         name: "ClobAuthDomain".to_string(),
         version: "1".to_string(),
         chainId: U256::from(chain_id),
@@ -134,13 +135,11 @@ pub async fn sign_clob_auth<S: AlloySigner>(
         timestamp, nonce
     );
 
-    let clob_auth = ClobAuth { message };
+    let clob_auth = protocol::ClobAuth { message };
 
-    // Compute struct hash
-    let struct_hash = keccak256(clob_auth.eip712_hash_struct());
-
-    // Compute domain separator
-    let domain_separator = keccak256(domain.eip712_hash_struct());
+    // Compute struct hash and domain separator
+    let struct_hash = clob_auth.eip712_hash_struct();
+    let domain_separator = domain.eip712_hash_struct();
 
     // Compute final hash
     let mut digest_message = Vec::new();
