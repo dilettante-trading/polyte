@@ -98,6 +98,30 @@ impl Markets {
         )
         .query("market", token_id.into())
     }
+
+    /// Get neg_risk status for a token
+    pub fn neg_risk(&self, token_id: impl Into<String>) -> Request<serde_json::Value> {
+        Request::get(
+            self.client.clone(),
+            self.base_url.clone(),
+            "/neg-risk".to_string(),
+            AuthMode::None,
+            self.chain_id,
+        )
+        .query("token_id", token_id.into())
+    }
+
+    /// Get tick size for a token
+    pub fn tick_size(&self, token_id: impl Into<String>) -> Request<serde_json::Value> {
+        Request::get(
+            self.client.clone(),
+            self.base_url.clone(),
+            "/tick-size".to_string(),
+            AuthMode::None,
+            self.chain_id,
+        )
+        .query("token_id", token_id.into())
+    }
 }
 
 /// Market information
