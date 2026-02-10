@@ -28,7 +28,10 @@ impl Markets {
         )
     }
 
-    pub fn get_by_token_ids(&self, token_ids: impl Into<Vec<String>>) -> Request<ListMarketsResponse> {
+    pub fn get_by_token_ids(
+        &self,
+        token_ids: impl Into<Vec<String>>,
+    ) -> Request<ListMarketsResponse> {
         Request::get(
             self.client.clone(),
             self.base_url.clone(),

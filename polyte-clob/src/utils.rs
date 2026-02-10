@@ -270,8 +270,6 @@ mod tests {
         assert_ne!(salt1, salt3, "Salts should be unique");
     }
 
-
-
     #[test]
     fn test_rounding_behavior() {
         // Test banker's rounding (round half to even)

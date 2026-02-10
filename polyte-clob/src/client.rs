@@ -116,7 +116,11 @@ impl Clob {
         let neg_risk = if let Some(neg_risk) = options.and_then(|o| o.neg_risk) {
             neg_risk
         } else {
-            let neg_risk_resp = self.markets().neg_risk(params.token_id.clone()).send().await?;
+            let neg_risk_resp = self
+                .markets()
+                .neg_risk(params.token_id.clone())
+                .send()
+                .await?;
             neg_risk_resp.neg_risk
         };
 
@@ -124,10 +128,17 @@ impl Clob {
         let tick_size = if let Some(tick_size) = options.and_then(|o| o.tick_size) {
             tick_size
         } else {
-            let tick_size_resp = self.markets().tick_size(params.token_id.clone()).send().await?;
-            let tick_size_val = tick_size_resp.minimum_tick_size.parse::<f64>().map_err(|e| {
-                ClobError::validation(format!("Invalid minimum_tick_size field: {}", e))
-            })?;
+            let tick_size_resp = self
+                .markets()
+                .tick_size(params.token_id.clone())
+                .send()
+                .await?;
+            let tick_size_val = tick_size_resp
+                .minimum_tick_size
+                .parse::<f64>()
+                .map_err(|e| {
+                    ClobError::validation(format!("Invalid minimum_tick_size field: {}", e))
+                })?;
             TickSize::try_from(tick_size_val)?
         };
 
