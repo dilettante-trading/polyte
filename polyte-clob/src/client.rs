@@ -11,6 +11,7 @@ use crate::{
     types::*,
     utils::{calculate_order_amounts, current_timestamp, generate_salt},
 };
+use alloy::primitives::Address;
 
 const DEFAULT_BASE_URL: &str = "https://clob.polymarket.com";
 
@@ -132,7 +133,7 @@ impl Clob {
 
         Ok(Order {
             salt: generate_salt(),
-            maker: account.address(),
+            maker: params.funder.unwrap_or(account.address()),
             signer: account.address(),
             taker: alloy::primitives::Address::ZERO,
             token_id: params.token_id.clone(),
@@ -142,7 +143,7 @@ impl Clob {
             nonce: current_timestamp().to_string(),
             fee_rate_bps,
             side: params.side,
-            signature_type: SignatureType::default(),
+            signature_type: params.signature_type.unwrap_or(SignatureType::Eoa),
         })
     }
 
@@ -216,6 +217,8 @@ pub struct CreateOrderParams {
     pub order_type: OrderKind,
     pub post_only: bool,
     pub expiration: Option<u64>,
+    pub funder: Option<Address>,
+    pub signature_type: Option<SignatureType>,
 }
 
 impl CreateOrderParams {

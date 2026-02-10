@@ -9,19 +9,31 @@ use thiserror::Error;
 #[error("invalid tick size: {0}. Valid values are 0.1, 0.01, 0.001, or 0.0001")]
 pub struct ParseTickSizeError(String);
 
-/// Order side (buy or sell)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum OrderSide {
     Buy,
     Sell,
 }
 
+impl Serialize for OrderSide {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            // Python client serializes as "0" and "1"
+            Self::Buy => serializer.serialize_str("0"),
+            Self::Sell => serializer.serialize_str("1"),
+        }
+    }
+}
+
 impl fmt::Display for OrderSide {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Buy => write!(f, "BUY"),
-            Self::Sell => write!(f, "SELL"),
+            Self::Buy => write!(f, "0"),
+            Self::Sell => write!(f, "1"),
         }
     }
 }
@@ -172,10 +184,22 @@ impl std::str::FromStr for TickSize {
     }
 }
 
+fn serialize_salt<S>(salt: &str, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    // Parse the string as u128 and serialize it as a number
+    let val = salt
+        .parse::<u128>()
+        .map_err(|_| serde::ser::Error::custom("invalid salt"))?;
+    serializer.serialize_u128(val)
+}
+
 /// Unsigned order
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Order {
+    #[serde(serialize_with = "serialize_salt")]
     pub salt: String,
     pub maker: Address,
     pub signer: Address,
@@ -242,7 +266,7 @@ mod tests {
 
         // Check values
         assert_eq!(json["makerAmount"], "1000");
-        assert_eq!(json["side"], "BUY");
+        assert_eq!(json["side"], "0");
         assert_eq!(json["signatureType"], 0);
         assert_eq!(json["nonce"], "789");
     }
