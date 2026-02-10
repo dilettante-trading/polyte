@@ -73,6 +73,13 @@ pub enum SignatureType {
     PolyGnosisSafe = 2,
 }
 
+impl SignatureType {
+    /// Returns true if the signature type indicates a proxy wallet
+    pub fn is_proxy(&self) -> bool {
+        matches!(self, Self::PolyProxy | Self::PolyGnosisSafe)
+    }
+}
+
 impl Serialize for SignatureType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
