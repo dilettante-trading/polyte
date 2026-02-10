@@ -162,9 +162,39 @@ impl Clob {
         let (maker_amount, taker_amount) =
             calculate_order_amounts(params.price, params.size, params.side, tick_size);
 
+        let signature_type = params.signature_type.unwrap_or_default();
+        let maker = if let Some(funder) = params.funder {
+            funder
+        } else if signature_type.is_proxy() {
+            // Fetch proxy from Gamma
+            let profile = self
+                .gamma
+                .user()
+                .get(account.address().to_string())
+                .send()
+                .await
+                .map_err(|e| ClobError::service(format!("Failed to fetch user profile: {}", e)))?;
+
+            profile
+                .proxy
+                .ok_or_else(|| {
+                    ClobError::validation(format!(
+                        "Signature type {:?} requires proxy, but none found for {}",
+                        signature_type,
+                        account.address()
+                    ))
+                })?
+                .parse::<Address>()
+                .map_err(|e| {
+                    ClobError::validation(format!("Invalid proxy address format from Gamma: {}", e))
+                })?
+        } else {
+            account.address()
+        };
+
         Ok(Order {
             salt: generate_salt(),
-            maker: params.funder.unwrap_or(account.address()),
+            maker,
             signer: account.address(),
             taker: alloy::primitives::Address::ZERO,
             token_id: params.token_id.clone(),
@@ -174,7 +204,7 @@ impl Clob {
             nonce: "0".to_string(),
             fee_rate_bps,
             side: params.side,
-            signature_type: params.signature_type.unwrap_or(SignatureType::Eoa),
+            signature_type,
             neg_risk,
         })
     }
