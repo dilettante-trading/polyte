@@ -41,9 +41,11 @@ impl ApiError {
     pub async fn from_response(response: reqwest::Response) -> Self {
         let status = response.status().as_u16();
 
-        let message = response
-            .json::<serde_json::Value>()
-            .await
+        // Get the raw response text first for debugging
+        let body_text = response.text().await.unwrap_or_default();
+        tracing::error!("API error response body: {}", body_text);
+
+        let message = serde_json::from_str::<serde_json::Value>(&body_text)
             .ok()
             .and_then(|v| {
                 v.get("error")
@@ -51,7 +53,7 @@ impl ApiError {
                     .and_then(|m| m.as_str())
                     .map(String::from)
             })
-            .unwrap_or_else(|| "Unknown error".to_string());
+            .unwrap_or_else(|| body_text.clone());
 
         match status {
             401 | 403 => Self::Authentication(message),
