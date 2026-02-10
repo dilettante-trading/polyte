@@ -220,5 +220,21 @@ pub struct NegRiskResponse {
 /// Response from the tick-size endpoint
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TickSizeResponse {
+    #[serde(deserialize_with = "deserialize_tick_size")]
     pub minimum_tick_size: String,
+}
+
+fn deserialize_tick_size<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+    let v = serde_json::Value::deserialize(deserializer)?;
+    match v {
+        serde_json::Value::String(s) => Ok(s),
+        serde_json::Value::Number(n) => Ok(n.to_string()),
+        _ => Err(serde::de::Error::custom(
+            "expected string or number for tick size",
+        )),
+    }
 }
