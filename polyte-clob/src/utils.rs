@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn test_generate_salt_is_positive() {
         let salt = generate_salt();
-        assert!(salt > 0);
+        assert!(!salt.is_empty());
     }
 
     #[test]
