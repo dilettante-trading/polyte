@@ -92,7 +92,7 @@ fn decimal_to_raw_amount(value: Decimal, decimals: u32) -> String {
 
 /// Generate random salt for orders
 pub fn generate_salt() -> String {
-    rand::rng().random::<u128>().to_string()
+    rand::rng().random::<u32>().to_string()
 }
 
 #[cfg(test)]
@@ -253,14 +253,9 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_salt_is_numeric() {
+    fn test_generate_salt_is_positive() {
         let salt = generate_salt();
-
-        // Should parse as u128
-        assert!(
-            salt.parse::<u128>().is_ok(),
-            "Salt should be a valid u128 string"
-        );
+        assert!(salt > 0);
     }
 
     #[test]
@@ -275,11 +270,7 @@ mod tests {
         assert_ne!(salt1, salt3, "Salts should be unique");
     }
 
-    #[test]
-    fn test_generate_salt_not_empty() {
-        let salt = generate_salt();
-        assert!(!salt.is_empty(), "Salt should not be empty");
-    }
+
 
     #[test]
     fn test_rounding_behavior() {

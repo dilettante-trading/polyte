@@ -144,6 +144,7 @@ impl Clob {
             fee_rate_bps,
             side: params.side,
             signature_type: params.signature_type.unwrap_or(SignatureType::Eoa),
+            neg_risk: market.neg_risk.unwrap_or(false),
         })
     }
 
@@ -178,7 +179,7 @@ impl Clob {
         // Create the payload wrapping the signed order
         let payload = serde_json::json!({
             "order": signed_order,
-            "owner": account.address(),
+            "owner": account.credentials().key,
             "orderType": order_type,
             "postOnly": post_only,
         });

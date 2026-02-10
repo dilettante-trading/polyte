@@ -212,6 +212,8 @@ pub struct Order {
     pub fee_rate_bps: String,
     pub side: OrderSide,
     pub signature_type: SignatureType,
+    #[serde(skip)]
+    pub neg_risk: bool,
 }
 
 /// Signed order
@@ -244,6 +246,7 @@ mod tests {
             fee_rate_bps: "0".to_string(),
             side: OrderSide::Buy,
             signature_type: SignatureType::Eoa,
+            neg_risk: false,
         };
 
         let signed_order = SignedOrder {

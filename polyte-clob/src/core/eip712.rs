@@ -52,7 +52,11 @@ pub async fn sign_order<S: AlloySigner>(
         name: "Polymarket CTF Exchange".to_string(),
         version: "1".to_string(),
         chainId: U256::from(chain_id),
-        verifyingContract: contracts.neg_risk_exchange,
+        verifyingContract: if order.neg_risk {
+            contracts.neg_risk_exchange
+        } else {
+            contracts.exchange
+        },
     };
 
     // Convert order to struct
