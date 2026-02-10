@@ -35,9 +35,11 @@
 //!         order_type: OrderKind::Gtc,
 //!         post_only: false,
 //!         expiration: None,
+//!         funder: None,
+//!         signature_type: None,
 //!     };
 //!
-//!     let response = clob.place_order(&params).await?;
+//!     let response = clob.place_order(&params, None).await?;
 //!     println!("Order ID: {:?}", response.order_id);
 //!
 //!     Ok(())
@@ -70,5 +72,6 @@ pub use api::{
 pub use client::{Clob, ClobBuilder, CreateOrderParams};
 pub use error::ClobError;
 pub use types::{
-    Order, OrderKind, OrderSide, ParseTickSizeError, SignatureType, SignedOrder, TickSize,
+    Order, OrderKind, OrderSide, ParseTickSizeError, PartialCreateOrderOptions, SignatureType,
+    SignedOrder, TickSize,
 };

@@ -143,6 +143,13 @@ impl TickSize {
     }
 }
 
+/// Options for creating an order
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PartialCreateOrderOptions {
+    pub tick_size: Option<TickSize>,
+    pub neg_risk: Option<bool>,
+}
+
 impl TryFrom<&str> for TickSize {
     type Error = ParseTickSizeError;
 
