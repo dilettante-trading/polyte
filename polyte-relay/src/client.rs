@@ -1,3 +1,4 @@
+use crate::account::BuilderAccount;
 use crate::config::{get_contract_config, BuilderConfig, ContractConfig};
 use crate::error::RelayError;
 use crate::types::{
@@ -15,42 +16,45 @@ use url::Url;
 const SAFE_INIT_CODE_HASH: &str =
     "2bce2127ff07fb632d16c8347c4ebf501f4841168bed00d9e6ef715ddb6fcecf";
 
-pub struct RelayClient<S: Signer + Clone> {
+#[derive(Clone)]
+pub struct RelayClient {
     client: Client,
     base_url: Url,
-    signer: Option<S>,
     chain_id: u64,
-    builder_config: Option<BuilderConfig>,
+    account: Option<BuilderAccount>,
     contract_config: ContractConfig,
 }
 
-impl<S: Signer + Clone> RelayClient<S> {
+impl RelayClient {
+    /// Create a new Relay client with authentication
     pub fn new(
         base_url: &str,
         chain_id: u64,
-        signer: Option<S>,
-        builder_config: Option<BuilderConfig>,
+        private_key: impl Into<String>,
+        config: Option<BuilderConfig>,
     ) -> Result<Self, RelayError> {
-        let contract_config = get_contract_config(chain_id)
-            .ok_or_else(|| RelayError::Api(format!("Unsupported chain ID: {}", chain_id)))?;
+        let account = BuilderAccount::new(private_key, config)?;
+        Self::builder(base_url, chain_id)?
+            .with_account(account)
+            .build()
+    }
 
-        let mut base_url = Url::parse(base_url)?;
-        if !base_url.path().ends_with('/') {
-            base_url.set_path(&format!("{}/", base_url.path()));
-        }
+    /// Create a new Relay client builder
+    pub fn builder(base_url: &str, chain_id: u64) -> Result<RelayClientBuilder, RelayError> {
+        RelayClientBuilder::new(base_url, chain_id)
+    }
 
-        Ok(Self {
-            client: Client::new(),
-            base_url,
-            signer,
-            chain_id,
-            builder_config,
-            contract_config,
-        })
+    /// Create a new Relay client from a BuilderAccount
+    pub fn from_account(
+        base_url: &str,
+        chain_id: u64,
+        account: BuilderAccount,
+    ) -> Result<Self, RelayError> {
+        Self::builder(base_url, chain_id)?.with_account(account).build()
     }
 
     pub fn address(&self) -> Option<Address> {
-        self.signer.as_ref().map(|s| s.address())
+        self.account.as_ref().map(|a| a.address())
     }
 
     pub async fn get_nonce(&self, address: Address) -> Result<u64, RelayError> {
@@ -121,8 +125,8 @@ impl<S: Signer + Clone> RelayClient<S> {
     }
 
     pub fn get_expected_safe(&self) -> Result<Address, RelayError> {
-        let signer = self.signer.as_ref().ok_or(RelayError::MissingSigner)?;
-        Ok(self.derive_safe_address(signer.address()))
+        let account = self.account.as_ref().ok_or(RelayError::MissingSigner)?;
+        Ok(self.derive_safe_address(account.address()))
     }
 
     fn create_safe_multisend_transaction(&self, txns: Vec<SafeTransaction>) -> SafeTransaction {
@@ -137,10 +141,6 @@ impl<S: Signer + Clone> RelayClient<S> {
             packed.push(tx.operation);
             packed.extend_from_slice(tx.to.as_slice());
             packed.extend_from_slice(&tx.value.to_be_bytes::<32>());
-            packed.extend_from_slice(&(tx.data.len() as u64).to_be_bytes()[24..32]); // u64 is enough? uint256 in solidity
-            // Wait, to_be_bytes::<32>() for U256.
-            // tx.value is U256.
-            // data length is usize, need to convert to U256 bytes.
             packed.extend_from_slice(&U256::from(tx.data.len()).to_be_bytes::<32>());
             packed.extend_from_slice(&tx.data);
             encoded_txns.extend_from_slice(&packed);
@@ -149,13 +149,6 @@ impl<S: Signer + Clone> RelayClient<S> {
         // encoded_txns now needs to be wrapped in multiSend(bytes)
         // selector: 8d80ff0a
         let mut data = hex::decode("8d80ff0a").unwrap();
-        // The argument is `bytes transactions`.
-        // abi.encode(encoded_txns) -> offset + length + data + padding?
-        // Since it's just `bytes`, it is encoded as:
-        // header (offset to data)
-        // length of data
-        // data
-        // padding
         
         // Use alloy to encode `(bytes)` tuple.
         let multisend_data = (Bytes::from(encoded_txns),).abi_encode();
@@ -189,8 +182,8 @@ impl<S: Signer + Clone> RelayClient<S> {
         transactions: Vec<SafeTransaction>,
         metadata: Option<String>,
     ) -> Result<RelayerTransactionResponse, RelayError> {
-        let signer = self.signer.as_ref().ok_or(RelayError::MissingSigner)?;
-        let from_address = signer.address();
+        let account = self.account.as_ref().ok_or(RelayError::MissingSigner)?;
+        let from_address = account.address();
         
         let safe_address = self.derive_safe_address(from_address);
         
@@ -224,15 +217,8 @@ impl<S: Signer + Clone> RelayClient<S> {
         };
 
         let struct_hash = safe_tx.eip712_signing_hash(&domain);
-        let signature = signer.sign_hash(&struct_hash).await.map_err(|e| RelayError::Signer(e.to_string()))?;
+        let signature = account.signer().sign_hash(&struct_hash).await.map_err(|e| RelayError::Signer(e.to_string()))?;
         let packed_sig = self.split_and_pack_sig(signature);
-
-        // Construct request
-        // We need `SignatureParams` struct or similar.
-        // In `types.rs` I didn't add `SignatureParams` fully.
-        
-        // Building the manual JSON request body to match `TransactionRequest` in Python
-        // It has `signatureParams` field.
         
         #[derive(Serialize)]
         struct SigParams {
@@ -299,11 +285,15 @@ impl<S: Signer + Clone> RelayClient<S> {
         let url = self.base_url.join(endpoint)?;
         let body_str = serde_json::to_string(body)?;
         
-        let headers = if let Some(config) = &self.builder_config {
-            config.generate_headers("POST", url.path(), Some(&body_str))
-                .map_err(RelayError::Api)?
+        let headers = if let Some(account) = &self.account {
+            if let Some(config) = account.config() {
+                config.generate_headers("POST", url.path(), Some(&body_str))
+                    .map_err(RelayError::Api)?
+            } else {
+                return Err(RelayError::Api("Builder config missing - cannot authenticate request".to_string()));
+            }
         } else {
-             return Err(RelayError::Api("Builder config missing".to_string()));
+             return Err(RelayError::Api("Account missing - cannot authenticate request".to_string()));
         };
 
         let resp = self.client
@@ -319,5 +309,49 @@ impl<S: Signer + Clone> RelayClient<S> {
         }
 
         Ok(resp.json().await?)
+    }
+}
+
+pub struct RelayClientBuilder {
+    base_url: String,
+    chain_id: u64,
+    account: Option<BuilderAccount>,
+}
+
+impl RelayClientBuilder {
+    pub fn new(base_url: &str, chain_id: u64) -> Result<Self, RelayError> {
+        let mut base_url = Url::parse(base_url)?;
+        if !base_url.path().ends_with('/') {
+            base_url.set_path(&format!("{}/", base_url.path()));
+        }
+        
+        Ok(Self {
+            base_url: base_url.to_string(),
+            chain_id,
+            account: None,
+        })
+    }
+
+    pub fn with_account(mut self, account: BuilderAccount) -> Self {
+        self.account = Some(account);
+        self
+    }
+
+    pub fn build(self) -> Result<RelayClient, RelayError> {
+        let mut base_url = Url::parse(&self.base_url)?;
+        if !base_url.path().ends_with('/') {
+            base_url.set_path(&format!("{}/", base_url.path()));
+        }
+
+        let contract_config = get_contract_config(self.chain_id)
+            .ok_or_else(|| RelayError::Api(format!("Unsupported chain ID: {}", self.chain_id)))?;
+
+        Ok(RelayClient {
+            client: Client::new(),
+            base_url,
+            chain_id: self.chain_id,
+            account: self.account,
+            contract_config,
+        })
     }
 }

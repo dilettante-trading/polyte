@@ -7,3 +7,7 @@ pub use client::RelayClient;
 pub use config::{BuilderConfig, ContractConfig};
 pub use error::RelayError;
 pub use types::{SafeTransaction, SafeTx, TransactionRequest};
+
+mod account;
+
+pub use account::BuilderAccount;

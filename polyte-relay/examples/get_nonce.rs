@@ -1,8 +1,6 @@
-use alloy::signers::local::PrivateKeySigner;
 use dotenvy::dotenv;
 use polyte_relay::{BuilderConfig, RelayClient};
 use std::env;
-use std::str::FromStr;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -23,12 +21,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    let signer = PrivateKeySigner::from_str(&pk)?;
+
 
     let client = RelayClient::new(
         &relayer_url,
         chain_id,
-        Some(signer.clone()),
+        pk,
         builder_config,
     )?;
 
@@ -37,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let safe = client.get_expected_safe()?;
     println!("Expected Safe: {:?}", safe);
 
-    let nonce = client.get_nonce(signer.address()).await?;
+    let nonce = client.get_nonce(client.address().unwrap()).await?;
     println!("Nonce: {}", nonce);
     
     match client.get_deployed(safe).await {

@@ -6,6 +6,7 @@ use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 
+#[derive(Clone, Debug)]
 pub struct ContractConfig {
     pub safe_factory: Address,
     pub safe_multisend: Address,
@@ -22,6 +23,7 @@ pub fn get_contract_config(chain_id: u64) -> Option<ContractConfig> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct BuilderConfig {
     pub key: String,
     pub secret: String,
