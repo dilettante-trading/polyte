@@ -229,6 +229,24 @@ pub struct Order {
     pub neg_risk: bool,
 }
 
+/// Arguments for creating a market order
+#[derive(Debug, Clone)]
+pub struct MarketOrderArgs {
+    pub token_id: String,
+    /// For BUY: Amount in USDC to spend
+    /// For SELL: Amount of token to sell
+    pub amount: f64,
+    pub side: OrderSide,
+    /// Worst acceptable price to fill at.
+    /// If None, it will be calculated from the orderbook.
+    pub price: Option<f64>,
+    pub fee_rate_bps: Option<u16>,
+    pub nonce: Option<u64>,
+    pub funder: Option<Address>,
+    pub signature_type: Option<SignatureType>,
+    pub order_type: Option<OrderKind>,
+}
+
 /// Signed order
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

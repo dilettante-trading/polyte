@@ -9,7 +9,10 @@ use crate::{
     error::ClobError,
     request::{AuthMode, Request},
     types::*,
-    utils::{calculate_order_amounts, generate_salt},
+    utils::{
+        calculate_market_order_amounts, calculate_market_price, calculate_order_amounts,
+        generate_salt,
+    },
 };
 use alloy::primitives::Address;
 use polyte_gamma::Gamma;
@@ -209,7 +212,140 @@ impl Clob {
         })
     }
 
-    /// Sign an order
+    /// Create an unsigned market order from parameters
+    pub async fn create_market_order(
+        &self,
+        params: &MarketOrderArgs,
+        options: Option<PartialCreateOrderOptions>,
+    ) -> Result<Order, ClobError> {
+        let account = self
+            .account
+            .as_ref()
+            .ok_or_else(|| ClobError::validation("Account required to create order"))?;
+
+        if params.amount <= 0.0 {
+            return Err(ClobError::validation(format!(
+                "Amount must be positive, got {}",
+                params.amount
+            )));
+        }
+
+        // Fetch or use provided neg_risk status
+        let neg_risk = if let Some(neg_risk) = options.and_then(|o| o.neg_risk) {
+            neg_risk
+        } else {
+            let neg_risk_resp = self
+                .markets()
+                .neg_risk(params.token_id.clone())
+                .send()
+                .await?;
+            neg_risk_resp.neg_risk
+        };
+
+        // Fetch or use provided tick size
+        let tick_size = if let Some(tick_size) = options.and_then(|o| o.tick_size) {
+            tick_size
+        } else {
+            let tick_size_resp = self
+                .markets()
+                .tick_size(params.token_id.clone())
+                .send()
+                .await?;
+            let tick_size_val = tick_size_resp
+                .minimum_tick_size
+                .parse::<f64>()
+                .map_err(|e| {
+                    ClobError::validation(format!("Invalid minimum_tick_size field: {}", e))
+                })?;
+            TickSize::try_from(tick_size_val)?
+        };
+
+        // Determine price
+        let price = if let Some(p) = params.price {
+            p
+        } else {
+            // Fetch orderbook and calculate price
+            let book = self
+                .markets()
+                .order_book(params.token_id.clone())
+                .send()
+                .await?;
+            
+            let levels = match params.side {
+                OrderSide::Buy => book.asks,
+                OrderSide::Sell => book.bids,
+            };
+            
+            calculate_market_price(&levels, params.amount, params.side)
+                .ok_or_else(|| ClobError::validation("Not enough liquidity to fill market order"))?
+        };
+
+        // Get fee rate
+        let fee_rate_response: serde_json::Value = self
+            .client
+            .get(self.base_url.join("/fee-rate")?)
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        let fee_rate_bps = fee_rate_response["feeRateBps"]
+            .as_str()
+            .unwrap_or("0")
+            .to_string();
+
+        // Calculate amounts
+        let (maker_amount, taker_amount) =
+            calculate_market_order_amounts(params.amount, price, params.side, tick_size);
+
+        let signature_type = params.signature_type.unwrap_or_default();
+        let maker = if let Some(funder) = params.funder {
+            funder
+        } else if signature_type.is_proxy() {
+            // Fetch proxy from Gamma
+            let profile = self
+                .gamma
+                .user()
+                .get(account.address().to_string())
+                .send()
+                .await
+                .map_err(|e| ClobError::service(format!("Failed to fetch user profile: {}", e)))?;
+
+            profile
+                .proxy
+                .ok_or_else(|| {
+                    ClobError::validation(format!(
+                        "Signature type {:?} requires proxy, but none found for {}",
+                        signature_type,
+                        account.address()
+                    ))
+                })?
+                .parse::<Address>()
+                .map_err(|e| {
+                    ClobError::validation(format!("Invalid proxy address format from Gamma: {}", e))
+                })?
+        } else {
+            account.address()
+        };
+
+        Ok(Order {
+            salt: generate_salt(),
+            maker,
+            signer: account.address(),
+            taker: alloy::primitives::Address::ZERO,
+            token_id: params.token_id.clone(),
+            maker_amount,
+            taker_amount,
+            // Market orders (FOK) usually technically expire immediately or 0? 
+            // Python sets "0" expiration for market/FOK orders.
+            expiration: "0".to_string(), 
+            nonce: "0".to_string(),
+            fee_rate_bps,
+            side: params.side,
+            signature_type,
+            neg_risk,
+        })
+    }
     pub async fn sign_order(&self, order: &Order) -> Result<SignedOrder, ClobError> {
         let account = self
             .account
@@ -266,6 +402,22 @@ impl Clob {
         let order = self.create_order(params, options).await?;
         let signed_order = self.sign_order(&order).await?;
         self.post_order(&signed_order, params.order_type, params.post_only)
+            .await
+    }
+
+    /// Create, sign, and post a market order (convenience method)
+    pub async fn place_market_order(
+        &self,
+        params: &MarketOrderArgs,
+        options: Option<PartialCreateOrderOptions>,
+    ) -> Result<OrderResponse, ClobError> {
+        let order = self.create_market_order(params, options).await?;
+        let signed_order = self.sign_order(&order).await?;
+        
+        let order_type = params.order_type.unwrap_or(OrderKind::Fok);
+        // Market orders are usually FOK
+        
+        self.post_order(&signed_order, order_type, false) // Market orders cannot be post_only
             .await
     }
 }
