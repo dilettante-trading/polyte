@@ -6,6 +6,7 @@ members = [
   "polyte-core",
   "polyte-data",
   "polyte-gamma",
+  "polyte-relay",
 ]
 resolver = "2"
 
