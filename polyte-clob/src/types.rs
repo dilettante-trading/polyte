@@ -22,9 +22,8 @@ impl Serialize for OrderSide {
         S: serde::Serializer,
     {
         match self {
-            // Python client serializes as "0" and "1"
-            Self::Buy => serializer.serialize_str("0"),
-            Self::Sell => serializer.serialize_str("1"),
+            Self::Buy => serializer.serialize_str("BUY"),
+            Self::Sell => serializer.serialize_str("SELL"),
         }
     }
 }
