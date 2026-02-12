@@ -1,10 +1,10 @@
 use alloy::primitives::Address;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use hmac::{Hmac, Mac};
 use reqwest::header::{HeaderMap, HeaderValue};
 use sha2::Sha256;
 use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
-use base64::{Engine as _, engine::general_purpose::STANDARD};
 
 #[derive(Clone, Debug)]
 pub struct ContractConfig {
@@ -62,18 +62,62 @@ impl BuilderConfig {
         let signature = STANDARD.encode(result.into_bytes());
 
         headers.insert("POLY-API-KEY", HeaderValue::from_str(&self.key).unwrap());
+        headers.insert("POLY-TIMESTAMP", HeaderValue::from_str(&timestamp).unwrap());
+        headers.insert("POLY-SIGNATURE", HeaderValue::from_str(&signature).unwrap());
+
+        if let Some(passphrase) = &self.passphrase {
+            headers.insert(
+                "POLY-PASSPHRASE",
+                HeaderValue::from_str(passphrase).unwrap(),
+            );
+        }
+
+        Ok(headers)
+    }
+
+    pub fn generate_relayer_v2_headers(
+        &self,
+        method: &str,
+        path: &str,
+        body: Option<&str>,
+    ) -> Result<HeaderMap, String> {
+        let mut headers = HeaderMap::new();
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            .to_string();
+
+        let body_str = body.unwrap_or("");
+        // Signature logic: timestamp + method + path + body
+        let message = format!("{}{}{}{}", timestamp, method, path, body_str);
+
+        let secret_bytes = STANDARD
+            .decode(&self.secret)
+            .map_err(|e| format!("Invalid base64 secret: {}", e))?;
+
+        let mut mac = Hmac::<Sha256>::new_from_slice(&secret_bytes)
+            .map_err(|e| format!("Invalid secret: {}", e))?;
+        mac.update(message.as_bytes());
+        let result = mac.finalize();
+        let signature = STANDARD.encode(result.into_bytes());
+
         headers.insert(
-            "POLY-TIMESTAMP",
+            "POLY_BUILDER_API_KEY",
+            HeaderValue::from_str(&self.key).unwrap(),
+        );
+        headers.insert(
+            "POLY_BUILDER_TIMESTAMP",
             HeaderValue::from_str(&timestamp).unwrap(),
         );
         headers.insert(
-            "POLY-SIGNATURE",
+            "POLY_BUILDER_SIGNATURE",
             HeaderValue::from_str(&signature).unwrap(),
         );
 
         if let Some(passphrase) = &self.passphrase {
             headers.insert(
-                "POLY-PASSPHRASE",
+                "POLY_BUILDER_PASSPHRASE",
                 HeaderValue::from_str(passphrase).unwrap(),
             );
         }
