@@ -4,7 +4,7 @@ use url::Url;
 
 use crate::{
     account::{Account, Credentials},
-    api::{account::AccountApi, orders::OrderResponse, Markets, Orders},
+    api::{account::AccountApi, orders::OrderResponse, Health, Markets, Orders},
     core::chain::Chain,
     error::ClobError,
     request::{AuthMode, Request},
@@ -67,6 +67,14 @@ impl Clob {
             client: self.client.clone(),
             base_url: self.base_url.clone(),
             chain_id: self.chain_id,
+        }
+    }
+
+    /// Get health namespace for latency and health checks
+    pub fn health(&self) -> Health {
+        Health {
+            client: self.client.clone(),
+            base_url: self.base_url.clone(),
         }
     }
 
