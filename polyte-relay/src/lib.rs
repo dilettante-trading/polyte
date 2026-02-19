@@ -6,7 +6,7 @@ mod types;
 pub use client::RelayClient;
 pub use config::{BuilderConfig, ContractConfig};
 pub use error::RelayError;
-pub use types::{SafeTransaction, SafeTx, TransactionRequest};
+pub use types::{SafeTransaction, SafeTx, TransactionRequest, WalletType};
 
 mod account;
 

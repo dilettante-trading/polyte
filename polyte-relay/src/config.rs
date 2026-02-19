@@ -1,23 +1,36 @@
 use alloy::primitives::Address;
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use base64::{engine::general_purpose::{STANDARD, URL_SAFE}, Engine as _};
 use hmac::{Hmac, Mac};
 use reqwest::header::{HeaderMap, HeaderValue};
 use sha2::Sha256;
 use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+// Proxy Init Code Hash for CREATE2 derivation
+pub const PROXY_INIT_CODE_HASH: &str =
+    "5765fabc5c0cae4de8e0d2a21514faa7a36c35e71bee7558c37cd7bb3c64c5fc";
+
 #[derive(Clone, Debug)]
 pub struct ContractConfig {
     pub safe_factory: Address,
     pub safe_multisend: Address,
+    pub proxy_factory: Option<Address>,
+    pub relay_hub: Option<Address>,
 }
 
 pub fn get_contract_config(chain_id: u64) -> Option<ContractConfig> {
     match chain_id {
-        137 | 80002 => Some(ContractConfig {
+        137 => Some(ContractConfig {
             safe_factory: Address::from_str("0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b").unwrap(),
-            safe_multisend: Address::from_str("0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761")
-                .unwrap(),
+            safe_multisend: Address::from_str("0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761").unwrap(),
+            proxy_factory: Some(Address::from_str("0xaB45c5A4B0c941a2F231C04C3f49182e1A254052").unwrap()),
+            relay_hub: Some(Address::from_str("0xD216153c06E857cD7f72665E0aF1d7D82172F494").unwrap()),
+        }),
+        80002 => Some(ContractConfig {
+            safe_factory: Address::from_str("0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b").unwrap(),
+            safe_multisend: Address::from_str("0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761").unwrap(),
+            proxy_factory: None, // Proxy not supported on Amoy testnet
+            relay_hub: None,
         }),
         _ => None,
     }
@@ -92,15 +105,18 @@ impl BuilderConfig {
         // Signature logic: timestamp + method + path + body
         let message = format!("{}{}{}{}", timestamp, method, path, body_str);
 
-        let secret_bytes = STANDARD
+        // Try URL-safe decode first, fallback to standard
+        let secret_bytes = URL_SAFE
             .decode(&self.secret)
+            .or_else(|_| STANDARD.decode(&self.secret))
             .map_err(|e| format!("Invalid base64 secret: {}", e))?;
 
         let mut mac = Hmac::<Sha256>::new_from_slice(&secret_bytes)
             .map_err(|e| format!("Invalid secret: {}", e))?;
         mac.update(message.as_bytes());
         let result = mac.finalize();
-        let signature = STANDARD.encode(result.into_bytes());
+        // Use URL-safe encoding for signature (matching Python's urlsafe_b64encode)
+        let signature = URL_SAFE.encode(result.into_bytes());
 
         headers.insert(
             "POLY_BUILDER_API_KEY",

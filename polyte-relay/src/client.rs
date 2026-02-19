@@ -3,6 +3,7 @@ use crate::config::{get_contract_config, BuilderConfig, ContractConfig};
 use crate::error::RelayError;
 use crate::types::{
     NonceResponse, RelayerTransactionResponse, SafeTransaction, SafeTx, TransactionStatusResponse,
+    WalletType,
 };
 use alloy::hex;
 use alloy::primitives::{keccak256, Address, Bytes, U256};
@@ -17,13 +18,18 @@ use url::Url;
 const SAFE_INIT_CODE_HASH: &str =
     "2bce2127ff07fb632d16c8347c4ebf501f4841168bed00d9e6ef715ddb6fcecf";
 
-#[derive(Clone)]
+// From Polymarket Relayer Client
+const PROXY_INIT_CODE_HASH: &str =
+    "0xd21df8dc65880a8606f09fe0ce3df9b8869287ab0b058be05aa9e8af6330a00b";
+
+#[derive(Debug, Clone)]
 pub struct RelayClient {
     client: Client,
     base_url: Url,
     chain_id: u64,
     account: Option<BuilderAccount>,
     contract_config: ContractConfig,
+    wallet_type: WalletType,
 }
 
 impl RelayClient {
@@ -90,7 +96,7 @@ impl RelayClient {
     pub async fn get_nonce(&self, address: Address) -> Result<u64, RelayError> {
         let url = self
             .base_url
-            .join(&format!("nonce?address={}&type=SAFE", address))?;
+            .join(&format!("nonce?address={}&type={}", address, self.wallet_type.as_str()))?;
         let resp = self.client.get(url).send().await?;
 
         if !resp.status().is_success() {
@@ -158,7 +164,124 @@ impl RelayClient {
         Ok(self.derive_safe_address(account.address()))
     }
 
-    fn create_safe_multisend_transaction(&self, txns: Vec<SafeTransaction>) -> SafeTransaction {
+    fn derive_proxy_wallet(&self, owner: Address) -> Result<Address, RelayError> {
+        let proxy_factory = self.contract_config.proxy_factory
+            .ok_or_else(|| RelayError::Api("Proxy wallet not supported on this chain".to_string()))?;
+
+        // Salt = keccak256(encodePacked(["address"], [address]))
+        // encodePacked for address uses the 20 bytes directly.
+        let salt = keccak256(owner.as_slice());
+        
+        let init_code_hash = hex::decode(PROXY_INIT_CODE_HASH).unwrap();
+
+        // CREATE2: keccak256(0xff ++ factory ++ salt ++ init_code_hash)[12..]
+        let mut input = Vec::new();
+        input.push(0xff);
+        input.extend_from_slice(proxy_factory.as_slice());
+        input.extend_from_slice(salt.as_slice());
+        input.extend_from_slice(&init_code_hash);
+
+        let hash = keccak256(input);
+        Ok(Address::from_slice(&hash[12..]))
+    }
+
+    pub fn get_expected_proxy_wallet(&self) -> Result<Address, RelayError> {
+        let account = self.account.as_ref().ok_or(RelayError::MissingSigner)?;
+        self.derive_proxy_wallet(account.address())
+    }
+
+    /// Get relay payload for PROXY wallets (returns relay address and nonce)
+    pub async fn get_relay_payload(&self, address: Address) -> Result<(Address, u64), RelayError> {
+        #[derive(serde::Deserialize)]
+        struct RelayPayload {
+            address: String,
+            #[serde(deserialize_with = "crate::types::deserialize_nonce")]
+            nonce: u64,
+        }
+
+        let url = self.base_url.join(&format!("relay-payload?address={}&type=PROXY", address))?;
+        let resp = self.client.get(url).send().await?;
+
+        if !resp.status().is_success() {
+            let text = resp.text().await?;
+            return Err(RelayError::Api(format!("get_relay_payload failed: {}", text)));
+        }
+
+        let data = resp.json::<RelayPayload>().await?;
+        let relay_address: Address = data.address.parse()
+            .map_err(|e| RelayError::Api(format!("Invalid relay address: {}", e)))?;
+        Ok((relay_address, data.nonce))
+    }
+
+    /// Create the proxy struct hash for signing (EIP-712 style but with specific fields)
+    fn create_proxy_struct_hash(
+        &self,
+        from: Address,
+        to: Address,
+        data: &[u8],
+        tx_fee: U256,
+        gas_price: U256,
+        gas_limit: U256,
+        nonce: u64,
+        relay_hub: Address,
+        relay: Address,
+    ) -> [u8; 32] {
+        let mut message = Vec::new();
+
+        // "rlx:" prefix
+        message.extend_from_slice(b"rlx:");
+        // from address (20 bytes)
+        message.extend_from_slice(from.as_slice());
+        // to address (20 bytes) - This must be the ProxyFactory address
+        message.extend_from_slice(to.as_slice());
+        // data (raw bytes)
+        message.extend_from_slice(data);
+        // txFee as 32-byte big-endian
+        message.extend_from_slice(&tx_fee.to_be_bytes::<32>());
+        // gasPrice as 32-byte big-endian
+        message.extend_from_slice(&gas_price.to_be_bytes::<32>());
+        // gasLimit as 32-byte big-endian
+        message.extend_from_slice(&gas_limit.to_be_bytes::<32>());
+        // nonce as 32-byte big-endian
+        message.extend_from_slice(&U256::from(nonce).to_be_bytes::<32>());
+        // relayHub address (20 bytes)
+        message.extend_from_slice(relay_hub.as_slice());
+        // relay address (20 bytes)
+        message.extend_from_slice(relay.as_slice());
+
+        keccak256(&message).into()
+    }
+
+    /// Encode proxy transactions into calldata for the proxy wallet
+    fn encode_proxy_transaction_data(&self, txns: &[SafeTransaction]) -> Vec<u8> {
+        // ProxyTransaction struct: (uint8 typeCode, address to, uint256 value, bytes data)
+        // Function selector for proxy(ProxyTransaction[])
+        // IMPORTANT: Field order must match the ABI exactly!
+        alloy::sol! {
+            struct ProxyTransaction {
+                uint8 typeCode;
+                address to;
+                uint256 value;
+                bytes data;
+            }
+            function proxy(ProxyTransaction[] txns);
+        }
+
+        let proxy_txns: Vec<ProxyTransaction> = txns.iter().map(|tx| {
+            ProxyTransaction {
+                typeCode: 1, // 1 = Call (CallType.Call)
+                to: tx.to,
+                value: tx.value,
+                data: tx.data.clone(),
+            }
+        }).collect();
+
+        // Encode the function call: proxy([ProxyTransaction, ...])
+        let call = proxyCall { txns: proxy_txns };
+        call.abi_encode()
+    }
+
+    fn create_safe_multisend_transaction(&self, txns: &[SafeTransaction]) -> SafeTransaction {
         if txns.len() == 1 {
             return txns[0].clone();
         }
@@ -191,18 +314,31 @@ impl RelayClient {
         }
     }
 
-    fn split_and_pack_sig(&self, sig: alloy::primitives::Signature) -> String {
-        // Alloy's v() returns a boolean y_parity for EIP-1559/2930 and others.
-        // False = 0 (27), True = 1 (28).
-        let v = if sig.v() { 28 } else { 27 };
+    fn split_and_pack_sig_safe(&self, sig: alloy::primitives::Signature) -> String {
+        // Alloy's v() returns a boolean y_parity: false = 0, true = 1
+        // For Safe signatures, v must be adjusted: 0/1 + 31 = 31/32
+        let v_raw = if sig.v() { 1u8 } else { 0u8 };
+        let v = v_raw + 31;
 
         // Pack r, s, v
-        // abi.encodePacked(uint256 r, uint256 s, uint8 v)
         let mut packed = Vec::new();
         packed.extend_from_slice(&sig.r().to_be_bytes::<32>());
         packed.extend_from_slice(&sig.s().to_be_bytes::<32>());
         packed.push(v);
-        
+
+        format!("0x{}", hex::encode(packed))
+    }
+
+    fn split_and_pack_sig_proxy(&self, sig: alloy::primitives::Signature) -> String {
+        // For Proxy signatures, use standard v value: 27 or 28
+        let v = if sig.v() { 28u8 } else { 27u8 };
+
+        // Pack r, s, v
+        let mut packed = Vec::new();
+        packed.extend_from_slice(&sig.r().to_be_bytes::<32>());
+        packed.extend_from_slice(&sig.s().to_be_bytes::<32>());
+        packed.push(v);
+
         format!("0x{}", hex::encode(packed))
     }
 
@@ -211,9 +347,20 @@ impl RelayClient {
         transactions: Vec<SafeTransaction>,
         metadata: Option<String>,
     ) -> Result<RelayerTransactionResponse, RelayError> {
+        match self.wallet_type {
+            WalletType::Safe => self.execute_safe(transactions, metadata).await,
+            WalletType::Proxy => self.execute_proxy(transactions, metadata).await,
+        }
+    }
+
+    async fn execute_safe(
+        &self,
+        transactions: Vec<SafeTransaction>,
+        metadata: Option<String>,
+    ) -> Result<RelayerTransactionResponse, RelayError> {
         let account = self.account.as_ref().ok_or(RelayError::MissingSigner)?;
         let from_address = account.address();
-        
+
         let safe_address = self.derive_safe_address(from_address);
 
         if !self.get_deployed(safe_address).await? {
@@ -222,7 +369,7 @@ impl RelayClient {
 
         let nonce = self.get_nonce(from_address).await?;
 
-        let aggregated = self.create_safe_multisend_transaction(transactions);
+        let aggregated = self.create_safe_multisend_transaction(&transactions);
 
         let safe_tx = SafeTx {
             to: aggregated.to,
@@ -231,7 +378,7 @@ impl RelayClient {
             operation: aggregated.operation,
             safeTxGas: U256::ZERO,
             baseGas: U256::ZERO,
-            gasPrice: U256::ZERO, // Assuming 0
+            gasPrice: U256::ZERO,
             gasToken: Address::ZERO,
             refundReceiver: Address::ZERO,
             nonce: U256::from(nonce),
@@ -246,9 +393,10 @@ impl RelayClient {
         };
 
         let struct_hash = safe_tx.eip712_signing_hash(&domain);
-        let signature = account.signer().sign_hash(&struct_hash).await.map_err(|e| RelayError::Signer(e.to_string()))?;
-        let packed_sig = self.split_and_pack_sig(signature);
-        
+        let signature = account.signer().sign_message(struct_hash.as_slice()).await
+            .map_err(|e| RelayError::Signer(e.to_string()))?;
+        let packed_sig = self.split_and_pack_sig_safe(signature);
+
         #[derive(Serialize)]
         struct SigParams {
             #[serde(rename = "gasPrice")]
@@ -263,7 +411,7 @@ impl RelayClient {
             #[serde(rename = "refundReceiver")]
             refund_receiver: String,
         }
-        
+
         #[derive(Serialize)]
         struct Body {
             #[serde(rename = "type")]
@@ -299,6 +447,104 @@ impl RelayClient {
                 refund_receiver: Address::ZERO.to_string(),
             },
             value: safe_tx.value.to_string(),
+            nonce: nonce.to_string(),
+            metadata,
+        };
+
+        self._post_request("submit", &body).await
+    }
+
+    async fn execute_proxy(
+        &self,
+        transactions: Vec<SafeTransaction>,
+        metadata: Option<String>,
+    ) -> Result<RelayerTransactionResponse, RelayError> {
+        let account = self.account.as_ref().ok_or(RelayError::MissingSigner)?;
+        let from_address = account.address();
+
+        let proxy_wallet = self.derive_proxy_wallet(from_address)?;
+        let relay_hub = self.contract_config.relay_hub
+            .ok_or_else(|| RelayError::Api("Relay hub not configured".to_string()))?;
+        let proxy_factory = self.contract_config.proxy_factory
+            .ok_or_else(|| RelayError::Api("Proxy factory not configured".to_string()))?;
+
+        // Get relay payload (relay address + nonce)
+        let (relay_address, nonce) = self.get_relay_payload(from_address).await?;
+
+        // Encode all transactions into proxy calldata
+        let encoded_data = self.encode_proxy_transaction_data(&transactions);
+
+        // Constants for proxy transactions
+        let tx_fee = U256::ZERO;
+        let gas_price = U256::ZERO;
+        let gas_limit = U256::from(10_000_000u64); // Default gas limit
+
+        // Create struct hash for signing
+        // In original code, "to" was set to proxy_wallet I think? Or proxy_factory?
+        // Let's use proxy_wallet as "to" for now (based on safe logic) but verify if it should be factory.
+        // Actually, Python client says `const to = proxyWalletFactory`.
+        // So we must use proxy_factory as "to".
+        let struct_hash = self.create_proxy_struct_hash(
+            from_address,
+            proxy_factory, // CORRECTED: Use proxy_factory
+            &encoded_data,
+            tx_fee,
+            gas_price,
+            gas_limit,
+            nonce,
+            relay_hub,
+            relay_address,
+        );
+
+        // Sign the struct hash with EIP191 prefix
+        let signature = account.signer().sign_message(&struct_hash).await
+            .map_err(|e| RelayError::Signer(e.to_string()))?;
+        let packed_sig = self.split_and_pack_sig_proxy(signature);
+
+        #[derive(Serialize)]
+        struct SigParams {
+            #[serde(rename = "relayerFee")]
+            relayer_fee: String,
+            #[serde(rename = "gasLimit")]
+            gas_limit: String,
+            #[serde(rename = "gasPrice")]
+            gas_price: String, 
+            #[serde(rename = "relayHub")]
+            relay_hub: String,
+            relay: String,
+        }
+
+        #[derive(Serialize)]
+        struct Body {
+            #[serde(rename = "type")]
+            type_: String,
+            from: String,
+            to: String,
+            #[serde(rename = "proxyWallet")]
+            proxy_wallet: String,
+            data: String,
+            signature: String,
+            #[serde(rename = "signatureParams")]
+            signature_params: SigParams,
+            nonce: String,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            metadata: Option<String>,
+        }
+
+        let body = Body {
+            type_: "PROXY".to_string(),
+            from: from_address.to_string(),
+            to: proxy_factory.to_string(),
+            proxy_wallet: proxy_wallet.to_string(),
+            data: format!("0x{}", hex::encode(&encoded_data)),
+            signature: packed_sig,
+            signature_params: SigParams {
+                relayer_fee: "0".to_string(),
+                gas_limit: gas_limit.to_string(),
+                gas_price: "0".to_string(),
+                relay_hub: relay_hub.to_string(),
+                relay: relay_address.to_string(),
+            },
             nonce: nonce.to_string(),
             metadata,
         };
@@ -354,6 +600,8 @@ impl RelayClient {
         let url = self.base_url.join(endpoint)?;
         let body_str = serde_json::to_string(body)?;
 
+        eprintln!("DEBUG POST {} path={}", url, url.path());
+        eprintln!("DEBUG body: {}", body_str);
         tracing::debug!("POST {} with body: {}", url, body_str);
 
         let mut headers = if let Some(account) = &self.account {
@@ -409,6 +657,7 @@ pub struct RelayClientBuilder {
     base_url: String,
     chain_id: u64,
     account: Option<BuilderAccount>,
+    wallet_type: WalletType,
 }
 
 impl RelayClientBuilder {
@@ -417,16 +666,22 @@ impl RelayClientBuilder {
         if !base_url.path().ends_with('/') {
             base_url.set_path(&format!("{}/", base_url.path()));
         }
-        
+
         Ok(Self {
             base_url: base_url.to_string(),
             chain_id,
             account: None,
+            wallet_type: WalletType::default(),
         })
     }
 
     pub fn with_account(mut self, account: BuilderAccount) -> Self {
         self.account = Some(account);
+        self
+    }
+
+    pub fn wallet_type(mut self, wallet_type: WalletType) -> Self {
+        self.wallet_type = wallet_type;
         self
     }
 
@@ -445,6 +700,7 @@ impl RelayClientBuilder {
             chain_id: self.chain_id,
             account: self.account,
             contract_config,
+            wallet_type: self.wallet_type,
         })
     }
 }

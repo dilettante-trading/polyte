@@ -1,6 +1,25 @@
 use alloy::sol;
 use serde::{Deserialize, Serialize};
 
+/// Wallet type for the relayer API
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum WalletType {
+    /// Safe wallet - requires explicit deployment before first transaction
+    #[default]
+    Safe,
+    /// Proxy wallet - auto-deploys on first transaction (Magic Link users)
+    Proxy,
+}
+
+impl WalletType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            WalletType::Safe => "SAFE",
+            WalletType::Proxy => "PROXY",
+        }
+    }
+}
+
 sol! {
     #[derive(Debug, PartialEq, Eq)]
     struct SafeTransaction {
@@ -54,8 +73,39 @@ pub struct RelayerTransactionResponse {
     pub transaction_hash: Option<String>,
 }
 
+pub fn deserialize_nonce<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de;
+
+    struct NonceVisitor;
+
+    impl<'de> de::Visitor<'de> for NonceVisitor {
+        type Value = u64;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a u64 or string representing a u64")
+        }
+
+        fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E> {
+            Ok(v)
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            v.parse().map_err(de::Error::custom)
+        }
+    }
+
+    deserializer.deserialize_any(NonceVisitor)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NonceResponse {
+    #[serde(deserialize_with = "deserialize_nonce")]
     pub nonce: u64,
 }
 
