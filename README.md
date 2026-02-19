@@ -15,6 +15,7 @@ Rust SDK toolkit for Polymarket APIs. It includes library crates for use in your
 | [polyoxide-core](./polyoxide-core) | Core utilities and shared types |
 | [polyoxide-data](./polyoxide-data) | Client library for Polymarket Data API |
 | [polyoxide-gamma](./polyoxide-gamma) | Client library for Polymarket Gamma (market data) API |
+| [polyoxide-relay](./polyoxide-relay) | Client library for Polymarket Relayer API (gasless transactions) |
 
 ## Installation
 
@@ -106,6 +107,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             _ => {}
         }
     }
+
+    Ok(())
+}
+```
+
+### Gasless Redemptions (Relay)
+
+```rust
+use polyoxide_relay::{RelayClient, BuilderAccount, BuilderConfig, WalletType};
+use alloy::primitives::U256;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Setup account with builder credentials
+    let builder_config = BuilderConfig::new(
+        std::env::var("POLYMARKET_API_KEY")?,
+        std::env::var("POLYMARKET_API_SECRET")?,
+        None,
+    );
+    let account = BuilderAccount::new(
+        std::env::var("POLYMARKET_PRIVATE_KEY")?,
+        Some(builder_config),
+    )?;
+
+    // Create relay client for Polygon mainnet
+    let client = RelayClient::builder("https://relayer-v2.polymarket.com", 137)?
+        .with_account(account)
+        .wallet_type(WalletType::Proxy)
+        .build()?;
+
+    // Submit gasless redemption with gas estimation
+    let condition_id: [u8; 32] = /* your condition ID */;
+    let index_sets = vec![U256::from(1), U256::from(2)];
+
+    let response = client
+        .submit_gasless_redemption_with_gas_estimation(condition_id, index_sets, true)
+        .await?;
+
+    println!("Transaction ID: {}", response.transaction_id);
 
     Ok(())
 }
