@@ -51,10 +51,10 @@ jobs:
         run: |
           if gh release view "v${{ steps.version.outputs.version }}" &>/dev/null; then
             echo "should_release=false" >> "$GITHUB_OUTPUT"
-            echo "Release v${{ steps.version.outputs.version }} already exists, skipping"
+            echo "::notice::Release v${{ steps.version.outputs.version }} already exists, skipping release"
           else
             echo "should_release=true" >> "$GITHUB_OUTPUT"
-            echo "Release v${{ steps.version.outputs.version }} does not exist"
+            echo "::notice::Release v${{ steps.version.outputs.version }} will be created"
           fi
 
   publish:
