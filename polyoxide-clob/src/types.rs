@@ -300,7 +300,7 @@ mod tests {
 
         // Check values
         assert_eq!(json["makerAmount"], "1000");
-        assert_eq!(json["side"], "0");
+        assert_eq!(json["side"], "BUY");
         assert_eq!(json["signatureType"], 0);
         assert_eq!(json["nonce"], "789");
     }

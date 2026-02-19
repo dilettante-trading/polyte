@@ -53,9 +53,13 @@
 //!                 size: 100.0,
 //!                 side: OrderSide::Buy,
 //!                 expiration: None,
+//!                 order_type: OrderKind::Gtc,
+//!                 post_only: false,
+//!                 funder: None,
+//!                 signature_type: Some(SignatureType::PolyProxy),
 //!             };
 //!
-//!             let response = polymarket.clob.place_order(&order_params).await?;
+//!             let response = polymarket.clob.place_order(&order_params, None).await?;
 //!             println!("Order placed: {:?}", response.order_id);
 //!         }
 //!     }
@@ -84,7 +88,8 @@ pub mod prelude {
     pub use polyoxide_clob::ws;
     #[cfg(feature = "clob")]
     pub use polyoxide_clob::{
-        Account, Chain, Clob, ClobBuilder, ClobError, CreateOrderParams, Credentials, OrderSide,
+        Account, Chain, Clob, ClobBuilder, ClobError, CreateOrderParams, Credentials, OrderKind,
+        OrderSide, SignatureType,
     };
     #[cfg(feature = "data")]
     pub use polyoxide_data::{DataApi, DataApiError};
