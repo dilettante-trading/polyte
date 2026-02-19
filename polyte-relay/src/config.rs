@@ -1,5 +1,8 @@
 use alloy::primitives::Address;
-use base64::{engine::general_purpose::{STANDARD, URL_SAFE}, Engine as _};
+use base64::{
+    engine::general_purpose::{STANDARD, URL_SAFE},
+    Engine as _,
+};
 use hmac::{Hmac, Mac};
 use reqwest::header::{HeaderMap, HeaderValue};
 use sha2::Sha256;
@@ -16,21 +19,30 @@ pub struct ContractConfig {
     pub safe_multisend: Address,
     pub proxy_factory: Option<Address>,
     pub relay_hub: Option<Address>,
+    pub rpc_url: &'static str,
 }
 
 pub fn get_contract_config(chain_id: u64) -> Option<ContractConfig> {
     match chain_id {
         137 => Some(ContractConfig {
             safe_factory: Address::from_str("0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b").unwrap(),
-            safe_multisend: Address::from_str("0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761").unwrap(),
-            proxy_factory: Some(Address::from_str("0xaB45c5A4B0c941a2F231C04C3f49182e1A254052").unwrap()),
-            relay_hub: Some(Address::from_str("0xD216153c06E857cD7f72665E0aF1d7D82172F494").unwrap()),
+            safe_multisend: Address::from_str("0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761")
+                .unwrap(),
+            proxy_factory: Some(
+                Address::from_str("0xaB45c5A4B0c941a2F231C04C3f49182e1A254052").unwrap(),
+            ),
+            relay_hub: Some(
+                Address::from_str("0xD216153c06E857cD7f72665E0aF1d7D82172F494").unwrap(),
+            ),
+            rpc_url: "https://polygon.drpc.org",
         }),
         80002 => Some(ContractConfig {
             safe_factory: Address::from_str("0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b").unwrap(),
-            safe_multisend: Address::from_str("0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761").unwrap(),
+            safe_multisend: Address::from_str("0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761")
+                .unwrap(),
             proxy_factory: None, // Proxy not supported on Amoy testnet
             relay_hub: None,
+            rpc_url: "https://rpc-amoy.polygon.technology",
         }),
         _ => None,
     }

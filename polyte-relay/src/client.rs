@@ -6,7 +6,10 @@ use crate::types::{
     WalletType,
 };
 use alloy::hex;
+use alloy::network::TransactionBuilder;
 use alloy::primitives::{keccak256, Address, Bytes, U256};
+use alloy::providers::{Provider, ProviderBuilder};
+use alloy::rpc::types::TransactionRequest;
 use alloy::signers::Signer;
 use alloy::sol_types::{Eip712Domain, SolCall, SolStruct, SolValue};
 use reqwest::Client;
@@ -57,7 +60,9 @@ impl RelayClient {
         chain_id: u64,
         account: BuilderAccount,
     ) -> Result<Self, RelayError> {
-        Self::builder(base_url, chain_id)?.with_account(account).build()
+        Self::builder(base_url, chain_id)?
+            .with_account(account)
+            .build()
     }
 
     pub fn address(&self) -> Option<Address> {
@@ -94,9 +99,11 @@ impl RelayClient {
     }
 
     pub async fn get_nonce(&self, address: Address) -> Result<u64, RelayError> {
-        let url = self
-            .base_url
-            .join(&format!("nonce?address={}&type={}", address, self.wallet_type.as_str()))?;
+        let url = self.base_url.join(&format!(
+            "nonce?address={}&type={}",
+            address,
+            self.wallet_type.as_str()
+        ))?;
         let resp = self.client.get(url).send().await?;
 
         if !resp.status().is_success() {
@@ -122,7 +129,9 @@ impl RelayClient {
             return Err(RelayError::Api(format!("get_transaction failed: {}", text)));
         }
 
-        resp.json::<TransactionStatusResponse>().await.map_err(Into::into)
+        resp.json::<TransactionStatusResponse>()
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn get_deployed(&self, safe_address: Address) -> Result<bool, RelayError> {
@@ -147,14 +156,14 @@ impl RelayClient {
     fn derive_safe_address(&self, owner: Address) -> Address {
         let salt = keccak256(owner.abi_encode());
         let init_code_hash = hex::decode(SAFE_INIT_CODE_HASH).unwrap();
-        
+
         // CREATE2: keccak256(0xff ++ address ++ salt ++ keccak256(init_code))[12..]
         let mut input = Vec::new();
         input.push(0xff);
         input.extend_from_slice(self.contract_config.safe_factory.as_slice());
         input.extend_from_slice(salt.as_slice());
         input.extend_from_slice(&init_code_hash);
-        
+
         let hash = keccak256(input);
         Address::from_slice(&hash[12..])
     }
@@ -165,13 +174,14 @@ impl RelayClient {
     }
 
     fn derive_proxy_wallet(&self, owner: Address) -> Result<Address, RelayError> {
-        let proxy_factory = self.contract_config.proxy_factory
-            .ok_or_else(|| RelayError::Api("Proxy wallet not supported on this chain".to_string()))?;
+        let proxy_factory = self.contract_config.proxy_factory.ok_or_else(|| {
+            RelayError::Api("Proxy wallet not supported on this chain".to_string())
+        })?;
 
         // Salt = keccak256(encodePacked(["address"], [address]))
         // encodePacked for address uses the 20 bytes directly.
         let salt = keccak256(owner.as_slice());
-        
+
         let init_code_hash = hex::decode(PROXY_INIT_CODE_HASH).unwrap();
 
         // CREATE2: keccak256(0xff ++ factory ++ salt ++ init_code_hash)[12..]
@@ -199,16 +209,23 @@ impl RelayClient {
             nonce: u64,
         }
 
-        let url = self.base_url.join(&format!("relay-payload?address={}&type=PROXY", address))?;
+        let url = self
+            .base_url
+            .join(&format!("relay-payload?address={}&type=PROXY", address))?;
         let resp = self.client.get(url).send().await?;
 
         if !resp.status().is_success() {
             let text = resp.text().await?;
-            return Err(RelayError::Api(format!("get_relay_payload failed: {}", text)));
+            return Err(RelayError::Api(format!(
+                "get_relay_payload failed: {}",
+                text
+            )));
         }
 
         let data = resp.json::<RelayPayload>().await?;
-        let relay_address: Address = data.address.parse()
+        let relay_address: Address = data
+            .address
+            .parse()
             .map_err(|e| RelayError::Api(format!("Invalid relay address: {}", e)))?;
         Ok((relay_address, data.nonce))
     }
@@ -267,14 +284,17 @@ impl RelayClient {
             function proxy(ProxyTransaction[] txns);
         }
 
-        let proxy_txns: Vec<ProxyTransaction> = txns.iter().map(|tx| {
-            ProxyTransaction {
-                typeCode: 1, // 1 = Call (CallType.Call)
-                to: tx.to,
-                value: tx.value,
-                data: tx.data.clone(),
-            }
-        }).collect();
+        let proxy_txns: Vec<ProxyTransaction> = txns
+            .iter()
+            .map(|tx| {
+                ProxyTransaction {
+                    typeCode: 1, // 1 = Call (CallType.Call)
+                    to: tx.to,
+                    value: tx.value,
+                    data: tx.data.clone(),
+                }
+            })
+            .collect();
 
         // Encode the function call: proxy([ProxyTransaction, ...])
         let call = proxyCall { txns: proxy_txns };
@@ -301,7 +321,7 @@ impl RelayClient {
         // encoded_txns now needs to be wrapped in multiSend(bytes)
         // selector: 8d80ff0a
         let mut data = hex::decode("8d80ff0a").unwrap();
-        
+
         // Use alloy to encode `(bytes)` tuple.
         let multisend_data = (Bytes::from(encoded_txns),).abi_encode();
         data.extend_from_slice(&multisend_data);
@@ -347,9 +367,18 @@ impl RelayClient {
         transactions: Vec<SafeTransaction>,
         metadata: Option<String>,
     ) -> Result<RelayerTransactionResponse, RelayError> {
+        self.execute_with_gas(transactions, metadata, None).await
+    }
+
+    pub async fn execute_with_gas(
+        &self,
+        transactions: Vec<SafeTransaction>,
+        metadata: Option<String>,
+        gas_limit: Option<u64>,
+    ) -> Result<RelayerTransactionResponse, RelayError> {
         match self.wallet_type {
             WalletType::Safe => self.execute_safe(transactions, metadata).await,
-            WalletType::Proxy => self.execute_proxy(transactions, metadata).await,
+            WalletType::Proxy => self.execute_proxy(transactions, metadata, gas_limit).await,
         }
     }
 
@@ -364,7 +393,10 @@ impl RelayClient {
         let safe_address = self.derive_safe_address(from_address);
 
         if !self.get_deployed(safe_address).await? {
-            return Err(RelayError::Api(format!("Safe {} is not deployed", safe_address)));
+            return Err(RelayError::Api(format!(
+                "Safe {} is not deployed",
+                safe_address
+            )));
         }
 
         let nonce = self.get_nonce(from_address).await?;
@@ -393,7 +425,10 @@ impl RelayClient {
         };
 
         let struct_hash = safe_tx.eip712_signing_hash(&domain);
-        let signature = account.signer().sign_message(struct_hash.as_slice()).await
+        let signature = account
+            .signer()
+            .sign_message(struct_hash.as_slice())
+            .await
             .map_err(|e| RelayError::Signer(e.to_string()))?;
         let packed_sig = self.split_and_pack_sig_safe(signature);
 
@@ -458,14 +493,19 @@ impl RelayClient {
         &self,
         transactions: Vec<SafeTransaction>,
         metadata: Option<String>,
+        gas_limit: Option<u64>,
     ) -> Result<RelayerTransactionResponse, RelayError> {
         let account = self.account.as_ref().ok_or(RelayError::MissingSigner)?;
         let from_address = account.address();
 
         let proxy_wallet = self.derive_proxy_wallet(from_address)?;
-        let relay_hub = self.contract_config.relay_hub
+        let relay_hub = self
+            .contract_config
+            .relay_hub
             .ok_or_else(|| RelayError::Api("Relay hub not configured".to_string()))?;
-        let proxy_factory = self.contract_config.proxy_factory
+        let proxy_factory = self
+            .contract_config
+            .proxy_factory
             .ok_or_else(|| RelayError::Api("Proxy factory not configured".to_string()))?;
 
         // Get relay payload (relay address + nonce)
@@ -477,7 +517,7 @@ impl RelayClient {
         // Constants for proxy transactions
         let tx_fee = U256::ZERO;
         let gas_price = U256::ZERO;
-        let gas_limit = U256::from(10_000_000u64); // Default gas limit
+        let gas_limit = U256::from(gas_limit.unwrap_or(10_000_000u64));
 
         // Create struct hash for signing
         // In original code, "to" was set to proxy_wallet I think? Or proxy_factory?
@@ -497,7 +537,10 @@ impl RelayClient {
         );
 
         // Sign the struct hash with EIP191 prefix
-        let signature = account.signer().sign_message(&struct_hash).await
+        let signature = account
+            .signer()
+            .sign_message(&struct_hash)
+            .await
             .map_err(|e| RelayError::Signer(e.to_string()))?;
         let packed_sig = self.split_and_pack_sig_proxy(signature);
 
@@ -508,7 +551,7 @@ impl RelayClient {
             #[serde(rename = "gasLimit")]
             gas_limit: String,
             #[serde(rename = "gasPrice")]
-            gas_price: String, 
+            gas_price: String,
             #[serde(rename = "relayHub")]
             relay_hub: String,
             relay: String,
@@ -552,11 +595,118 @@ impl RelayClient {
         self._post_request("submit", &body).await
     }
 
+    /// Estimate gas required for a redemption transaction.
+    ///
+    /// Returns the estimated gas limit with relayer overhead and safety buffer included.
+    /// Uses the default RPC URL configured for the current chain.
+    ///
+    /// # Arguments
+    ///
+    /// * `condition_id` - The condition ID to redeem
+    /// * `index_sets` - The index sets to redeem
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use polyte_relay::{RelayClient, BuilderAccount, BuilderConfig, WalletType};
+    /// use alloy::primitives::{U256, hex};
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let builder_config = BuilderConfig::new(
+    ///     "key".to_string(),
+    ///     "secret".to_string(),
+    ///     None,
+    /// );
+    /// let account = BuilderAccount::new("0x...", Some(builder_config))?;
+    /// let client = RelayClient::builder("https://relayer-v2.polymarket.com", 137)?
+    ///     .with_account(account)
+    ///     .wallet_type(WalletType::Proxy)
+    ///     .build()?;
+    ///
+    /// let condition_id = [0u8; 32];
+    /// let index_sets = vec![U256::from(1)];
+    /// let estimated_gas = client
+    ///     .estimate_redemption_gas(condition_id, index_sets)
+    ///     .await?;
+    /// println!("Estimated gas: {}", estimated_gas);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn estimate_redemption_gas(
+        &self,
+        condition_id: [u8; 32],
+        index_sets: Vec<U256>,
+    ) -> Result<u64, RelayError> {
+        // 1. Define the redemption interface
+        alloy::sol! {
+            function redeemPositions(address collateral, bytes32 parentCollectionId, bytes32 conditionId, uint256[] indexSets);
+        }
+
+        // 2. Setup constants
+        let collateral =
+            Address::parse_checksummed("0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", None)
+                .map_err(|e| RelayError::Api(format!("Invalid collateral address: {}", e)))?;
+        let ctf_exchange =
+            Address::parse_checksummed("0x4D97DCd97eC945f40cF65F87097ACe5EA0476045", None)
+                .map_err(|e| RelayError::Api(format!("Invalid CTF exchange address: {}", e)))?;
+        let parent_collection_id = [0u8; 32];
+
+        // 3. Encode the redemption calldata
+        let call = redeemPositionsCall {
+            collateral,
+            parentCollectionId: parent_collection_id.into(),
+            conditionId: condition_id.into(),
+            indexSets: index_sets,
+        };
+        let redemption_calldata = Bytes::from(call.abi_encode());
+
+        // 4. Get the proxy wallet address
+        let proxy_wallet = match self.wallet_type {
+            WalletType::Proxy => self.get_expected_proxy_wallet()?,
+            WalletType::Safe => self.get_expected_safe()?,
+        };
+
+        // 5. Create provider using the configured RPC URL
+        let provider = ProviderBuilder::new().connect_http(
+            self.contract_config
+                .rpc_url
+                .parse()
+                .map_err(|e| RelayError::Api(format!("Invalid RPC URL: {}", e)))?,
+        );
+
+        // 6. Construct a mock transaction exactly as the proxy will execute it
+        let tx = TransactionRequest::default()
+            .with_from(proxy_wallet)
+            .with_to(ctf_exchange)
+            .with_input(redemption_calldata);
+
+        // 7. Ask the Polygon node to simulate it and return the base computational cost
+        let inner_gas_used = provider
+            .estimate_gas(tx)
+            .await
+            .map_err(|e| RelayError::Api(format!("Gas estimation failed: {}", e)))?;
+
+        // 8. Add relayer execution overhead + a 20% safety buffer
+        let relayer_overhead: u64 = 50_000;
+        let safe_gas_limit = (inner_gas_used + relayer_overhead) * 120 / 100;
+
+        Ok(safe_gas_limit)
+    }
 
     pub async fn submit_gasless_redemption(
         &self,
         condition_id: [u8; 32],
         index_sets: Vec<alloy::primitives::U256>,
+    ) -> Result<RelayerTransactionResponse, RelayError> {
+        self.submit_gasless_redemption_with_gas_estimation(condition_id, index_sets, false)
+            .await
+    }
+
+    pub async fn submit_gasless_redemption_with_gas_estimation(
+        &self,
+        condition_id: [u8; 32],
+        index_sets: Vec<alloy::primitives::U256>,
+        estimate_gas: bool,
     ) -> Result<RelayerTransactionResponse, RelayError> {
         // 1. Define the specific interface for redemption
         alloy::sol! {
@@ -565,9 +715,11 @@ impl RelayClient {
 
         // 2. Setup Constants
         // USDC on Polygon
-        let collateral = Address::parse_checksummed("0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", None).unwrap();
+        let collateral =
+            Address::parse_checksummed("0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", None).unwrap();
         // CTF Exchange Address on Polygon
-        let ctf_exchange = Address::parse_checksummed("0x4D97DCd97eC945f40cF65F87097ACe5EA0476045", None).unwrap();
+        let ctf_exchange =
+            Address::parse_checksummed("0x4D97DCd97eC945f40cF65F87097ACe5EA0476045", None).unwrap();
         let parent_collection_id = [0u8; 32];
 
         // 3. Encode the Calldata
@@ -575,11 +727,18 @@ impl RelayClient {
             collateral,
             parentCollectionId: parent_collection_id.into(),
             conditionId: condition_id.into(),
-            indexSets: index_sets,
+            indexSets: index_sets.clone(),
         };
         let data = call.abi_encode();
 
-        // 4. Construct the SafeTransaction
+        // 4. Estimate gas if requested
+        let gas_limit = if estimate_gas {
+            Some(self.estimate_redemption_gas(condition_id, index_sets.clone()).await?)
+        } else {
+            None
+        };
+
+        // 5. Construct the SafeTransaction
         let tx = SafeTransaction {
             to: ctf_exchange,
             value: U256::ZERO,
@@ -587,9 +746,9 @@ impl RelayClient {
             operation: 0, // 0 = Call (Not DelegateCall)
         };
 
-        // 5. Use the existing execute method
+        // 6. Use the execute_with_gas method
         // This handles Nonce fetching, EIP-712 Signing, and Relayer submission.
-        self.execute(vec![tx], None).await
+        self.execute_with_gas(vec![tx], None, gas_limit).await
     }
 
     async fn _post_request<T: Serialize>(
@@ -606,13 +765,18 @@ impl RelayClient {
 
         let mut headers = if let Some(account) = &self.account {
             if let Some(config) = account.config() {
-                config.generate_relayer_v2_headers("POST", url.path(), Some(&body_str))
+                config
+                    .generate_relayer_v2_headers("POST", url.path(), Some(&body_str))
                     .map_err(RelayError::Api)?
             } else {
-                return Err(RelayError::Api("Builder config missing - cannot authenticate request".to_string()));
+                return Err(RelayError::Api(
+                    "Builder config missing - cannot authenticate request".to_string(),
+                ));
             }
         } else {
-             return Err(RelayError::Api("Account missing - cannot authenticate request".to_string()));
+            return Err(RelayError::Api(
+                "Account missing - cannot authenticate request".to_string(),
+            ));
         };
 
         headers.insert(
@@ -620,7 +784,8 @@ impl RelayClient {
             reqwest::header::HeaderValue::from_static("application/json"),
         );
 
-        let resp = self.client
+        let resp = self
+            .client
             .post(url.clone())
             .headers(headers)
             .body(body_str.clone())
@@ -631,9 +796,14 @@ impl RelayClient {
         tracing::debug!("Response status for {}: {}", endpoint, status);
 
         if !status.is_success() {
-             let text = resp.text().await?;
-             tracing::error!("Request to {} failed with status {}: {}", endpoint, status, text);
-             return Err(RelayError::Api(format!("Request failed: {}", text)));
+            let text = resp.text().await?;
+            tracing::error!(
+                "Request to {} failed with status {}: {}",
+                endpoint,
+                status,
+                text
+            );
+            return Err(RelayError::Api(format!("Request failed: {}", text)));
         }
 
         // Get raw response text before attempting to decode
