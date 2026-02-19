@@ -48,25 +48,25 @@ jobs:
           echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
 
       - name: Build
-        run: cargo build --release --package polyte-cli --target ${{ matrix.target }}
+        run: cargo build --release --package polyoxide-cli --target ${{ matrix.target }}
 
       - name: Package (Unix)
         if: runner.os != 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
-          tar czvf ../../../polyte-cli-${{ matrix.target }}.tar.gz polyte
+          tar czvf ../../../polyoxide-cli-${{ matrix.target }}.tar.gz polyoxide
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
-          7z a ../../../polyte-cli-${{ matrix.target }}.zip polyte.exe
+          7z a ../../../polyoxide-cli-${{ matrix.target }}.zip polyoxide.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: polyte-cli-${{ matrix.target }}
-          path: polyte-cli-${{ matrix.target }}.*
+          name: polyoxide-cli-${{ matrix.target }}
+          path: polyoxide-cli-${{ matrix.target }}.*
 
   release:
     needs: build

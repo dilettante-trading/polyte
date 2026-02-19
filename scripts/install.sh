@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-REPO="roushou/polyte"
-BINARY="polyte"
+REPO="dilettante-trading/polyoxide"
+BINARY="polyoxide"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 
 # Detect OS
@@ -34,7 +34,7 @@ fi
 echo "Latest version: $VERSION"
 
 # Download
-URL="https://github.com/$REPO/releases/download/$VERSION/polyte-cli-${TARGET}.tar.gz"
+URL="https://github.com/$REPO/releases/download/$VERSION/polyoxide-cli-${TARGET}.tar.gz"
 echo "Downloading $URL..."
 
 TMP_DIR=$(mktemp -d)

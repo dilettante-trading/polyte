@@ -1,24 +1,21 @@
 # Polyoxide
 
-Rust SDK toolkit for Polymarket APIs. It includes library crates for use in your projects and a standalone CLI.
+Rust client for Polymarket APIs.
 
-> [!WARNING]
-> This is currently work-in-progress so the API may change and some features may be missing
+More information about this crate can be found in the [crate documentation](https://docs.rs/polyoxide/).
 
 ## Crates
 
 | Crate | Description |
 |-------|-------------|
-| [polyoxide](./polyoxide) | Unified client for Polymarket APIs (CLOB, Gamma, Data, WebSocket) |
-| [polyoxide-cli](./polyoxide-cli) | CLI tool for querying Polymarket APIs |
-| [polyoxide-clob](./polyoxide-clob) | Client library for Polymarket CLOB (order book) API |
-| [polyoxide-core](./polyoxide-core) | Core utilities and shared types |
-| [polyoxide-data](./polyoxide-data) | Client library for Polymarket Data API |
-| [polyoxide-gamma](./polyoxide-gamma) | Client library for Polymarket Gamma (market data) API |
+| [polyoxide](./) | Unified client for Polymarket APIs (CLOB, Gamma, Data, WebSocket) |
+| [polyoxide-cli](../polyoxide-cli) | CLI tool for querying Polymarket APIs |
+| [polyoxide-clob](../polyoxide-clob) | Client library for Polymarket CLOB (order book) API |
+| [polyoxide-core](../polyoxide-core) | Core utilities and shared types |
+| [polyoxide-data](../polyoxide-data) | Client library for Polymarket Data API |
+| [polyoxide-gamma](../polyoxide-gamma) | Client library for Polymarket Gamma (market data) API |
 
 ## Installation
-
-### Libraries
 
 ```
 cargo add polyoxide
@@ -39,22 +36,6 @@ cargo add polyoxide --no-default-features --features data
 # WebSocket only
 cargo add polyoxide --no-default-features --features ws
 ```
-
-### CLI
-
-Install using cargo
-
-```
-cargo install polyoxide-cli
-```
-
-Or download binaries directly from Github releases
-
-```
-curl -fsSL https://raw.githubusercontent.com/dilettante-trading/polyoxide/main/scripts/install.sh | sh
-```
-
-See more information [here](./polyoxide-cli/README.md).
 
 ## Usage
 
@@ -114,7 +95,3 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## License
 
 This project is licensed under the [MIT](./LICENSE) License.
-
-## Acknowledgements
-
-`polyoxide` is a hard fork of the [polyte](https://github.com/roushou/polyte) project helmed by Roushou.

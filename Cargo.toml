@@ -1,12 +1,12 @@
 [workspace]
 members = [
-  "polyte",
-  "polyte-cli",
-  "polyte-clob",
-  "polyte-core",
-  "polyte-data",
-  "polyte-gamma",
-  "polyte-relay",
+  "polyoxide",
+  "polyoxide-cli",
+  "polyoxide-clob",
+  "polyoxide-core",
+  "polyoxide-data",
+  "polyoxide-gamma",
+  "polyoxide-relay",
 ]
 resolver = "2"
 
@@ -15,14 +15,14 @@ version = "0.6.0"
 edition = "2021"
 license = "MIT"
 authors = ["Kenji Lau <hello@kenji.sh>"]
-repository = "https://github.com/roushou/polyte"
+repository = "https://github.com/dilettante-trading/polyoxide"
 rust-version = "1.75"
 
 [workspace.dependencies]
-polyte-core = { path = "polyte-core", version = "0.6.0" }
-polyte-clob = { path = "polyte-clob", version = "0.6.0" }
-polyte-gamma = { path = "polyte-gamma", version = "0.6.0" }
-polyte-data = { path = "polyte-data", version = "0.6.0" }
+polyoxide-core = { path = "polyoxide-core", version = "0.6.0" }
+polyoxide-clob = { path = "polyoxide-clob", version = "0.6.0" }
+polyoxide-gamma = { path = "polyoxide-gamma", version = "0.6.0" }
+polyoxide-data = { path = "polyoxide-data", version = "0.6.0" }
 tokio = { version = "1.41", features = ["full"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 serde = { version = "1.0", features = ["derive"] }

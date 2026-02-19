@@ -1,0 +1,28 @@
+[package]
+name = "polyoxide"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Unified Rust client for Polymarket APIs (CLOB, Gamma and Data)"
+keywords = ["polymarket", "prediction-markets", "api", "trading"]
+categories = ["api-bindings", "web-programming::http-client"]
+
+[features]
+default = ["clob", "gamma", "data"]
+clob = ["dep:polyoxide-clob"]
+gamma = ["dep:polyoxide-gamma"]
+data = ["dep:polyoxide-data"]
+ws = ["clob", "polyoxide-clob/ws"]
+full = ["clob", "gamma", "data", "ws"]
+
+[dependencies]
+polyoxide-gamma = { workspace = true, optional = true }
+polyoxide-clob = { workspace = true, optional = true }
+polyoxide-data = { workspace = true, optional = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

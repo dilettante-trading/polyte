@@ -1,0 +1,32 @@
+[package]
+name = "polyoxide-gamma"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Rust client library for Polymarket Gamma (market data) API"
+keywords = ["polymarket", "prediction-markets", "api", "gamma"]
+categories = ["api-bindings", "web-programming::http-client"]
+
+[features]
+default = []
+specta = ["dep:specta"]
+
+[dependencies]
+polyoxide-core = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+url = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+urlencoding = "2.1"
+specta = { version = "=2.0.0-rc.20", features = ["serde", "chrono"], optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
