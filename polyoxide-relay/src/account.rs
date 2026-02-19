@@ -1,7 +1,7 @@
-use alloy::primitives::Address;
-use alloy::signers::local::PrivateKeySigner;
 use crate::config::BuilderConfig;
 use crate::error::RelayError;
+use alloy::primitives::Address;
+use alloy::signers::local::PrivateKeySigner;
 
 #[derive(Clone, Debug)]
 pub struct BuilderAccount {
@@ -25,7 +25,7 @@ impl BuilderAccount {
     pub fn address(&self) -> Address {
         self.signer.address()
     }
-    
+
     pub fn signer(&self) -> &PrivateKeySigner {
         &self.signer
     }

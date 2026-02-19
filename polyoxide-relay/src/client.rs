@@ -733,7 +733,10 @@ impl RelayClient {
 
         // 4. Estimate gas if requested
         let gas_limit = if estimate_gas {
-            Some(self.estimate_redemption_gas(condition_id, index_sets.clone()).await?)
+            Some(
+                self.estimate_redemption_gas(condition_id, index_sets.clone())
+                    .await?,
+            )
         } else {
             None
         };

@@ -75,8 +75,8 @@ pub fn calculate_market_order_amounts(
             let maker_amount = amount_rounded;
             let taker_amount_raw = maker_amount / price_rounded;
             let taker_amount = round_to_zero(taker_amount_raw, SIZE_DECIMALS); // Round down/to-zero for shares?
-            // Existing logic used round_dp_with_strategy(ToZero).
-            
+                                                                               // Existing logic used round_dp_with_strategy(ToZero).
+
             (
                 to_raw_amount(maker_amount, SIZE_DECIMALS),
                 to_raw_amount(taker_amount, SIZE_DECIMALS),
@@ -88,7 +88,7 @@ pub fn calculate_market_order_amounts(
             let maker_amount = round_to_zero(amount, SIZE_DECIMALS); // Shares input usually rounded?
             let taker_amount_raw = maker_amount * price_rounded;
             let taker_amount = round_bankers(taker_amount_raw, SIZE_DECIMALS);
-            
+
             (
                 to_raw_amount(maker_amount, SIZE_DECIMALS),
                 to_raw_amount(taker_amount, SIZE_DECIMALS),
@@ -98,21 +98,17 @@ pub fn calculate_market_order_amounts(
 }
 
 /// Calculate the worst price needed to fill the requested amount from the orderbook.
-pub fn calculate_market_price(
-    levels: &[OrderLevel],
-    amount: f64,
-    side: OrderSide,
-) -> Option<f64> {
+pub fn calculate_market_price(levels: &[OrderLevel], amount: f64, side: OrderSide) -> Option<f64> {
     if levels.is_empty() {
         return None;
     }
 
     let mut sum = 0.0;
-    
+
     for level in levels {
         let p = level.price.parse::<f64>().ok()?;
         let s = level.size.parse::<f64>().ok()?;
-        
+
         match side {
             OrderSide::Buy => {
                 sum += p * s;
@@ -121,12 +117,12 @@ pub fn calculate_market_price(
                 sum += s;
             }
         }
-        
+
         if sum >= amount {
             return Some(p);
         }
     }
-    
+
     levels.last().and_then(|l| l.price.parse::<f64>().ok())
 }
 
@@ -134,7 +130,7 @@ pub fn calculate_market_price(
 fn to_raw_amount(val: f64, decimals: u32) -> String {
     let factor = 10f64.powi(decimals as i32);
     // Use matching rounding? Usually if we already rounded 'val', we just multiply and round to int.
-    let raw = (val * factor).round(); 
+    let raw = (val * factor).round();
     // Handle potential overflow if needed, but f64 goes up to 10^308. u128 is 10^38.
     // We assume amounts fit in u128.
     format!("{:.0}", raw)
@@ -153,7 +149,7 @@ fn round_bankers(val: f64, decimals: u32) -> f64 {
     let v = val * factor;
     let r = v.round();
     let diff = (v - r).abs();
-    
+
     if (diff - 0.5).abs() < 1e-10 {
         // Half-way case
         if r % 2.0 != 0.0 {
@@ -161,7 +157,7 @@ fn round_bankers(val: f64, decimals: u32) -> f64 {
             // if v was 1.5, round() gives 2. 2 is even. ok.
             // if v was 2.5, round() gives 3. 3 is odd. We want 2.
             // if v was 0.5, round() gives 1. We want 0.
-            
+
             // Wait, round() rounds away from zero for .5.
             // 0.5 -> 1.0. 1.5 -> 2.0. 2.5 -> 3.0.
             // We want 2.5 -> 2.0.
@@ -200,7 +196,7 @@ mod tests {
         assert_eq!(maker, "100000000");
         assert_eq!(taker, "52000000");
     }
-    
+
     #[test]
     fn test_round_bankers() {
         assert_eq!(round_bankers(0.5, 0), 0.0);
@@ -208,22 +204,24 @@ mod tests {
         assert_eq!(round_bankers(2.5, 0), 2.0);
         assert_eq!(round_bankers(3.5, 0), 4.0);
     }
-    
+
     #[test]
     fn test_calculate_market_order_amounts_buy() {
         // 100 USDC, 0.50 price.
         // Maker = 100 * 10^6. Taker = 200 * 10^6.
-        let (maker, taker) = calculate_market_order_amounts(100.0, 0.50, OrderSide::Buy, TickSize::Hundredth);
+        let (maker, taker) =
+            calculate_market_order_amounts(100.0, 0.50, OrderSide::Buy, TickSize::Hundredth);
         assert_eq!(maker, "100000000");
         assert_eq!(taker, "200000000");
     }
-    
+
     #[test]
     fn test_calculate_market_price_buy_simple() {
         // Should find match at 0.50
-        let levels = vec![
-            OrderLevel { price: "0.50".to_string(), size: "1000".to_string() },
-        ];
+        let levels = vec![OrderLevel {
+            price: "0.50".to_string(),
+            size: "1000".to_string(),
+        }];
         let price = calculate_market_price(&levels, 100.0, OrderSide::Buy);
         assert_eq!(price, Some(0.50));
     }

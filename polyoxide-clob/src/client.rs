@@ -278,12 +278,12 @@ impl Clob {
                 .order_book(params.token_id.clone())
                 .send()
                 .await?;
-            
+
             let levels = match params.side {
                 OrderSide::Buy => book.asks,
                 OrderSide::Sell => book.bids,
             };
-            
+
             calculate_market_price(&levels, params.amount, params.side)
                 .ok_or_else(|| ClobError::validation("Not enough liquidity to fill market order"))?
         };
@@ -344,9 +344,9 @@ impl Clob {
             token_id: params.token_id.clone(),
             maker_amount,
             taker_amount,
-            // Market orders (FOK) usually technically expire immediately or 0? 
+            // Market orders (FOK) usually technically expire immediately or 0?
             // Python sets "0" expiration for market/FOK orders.
-            expiration: "0".to_string(), 
+            expiration: "0".to_string(),
             nonce: "0".to_string(),
             fee_rate_bps,
             side: params.side,
@@ -421,10 +421,10 @@ impl Clob {
     ) -> Result<OrderResponse, ClobError> {
         let order = self.create_market_order(params, options).await?;
         let signed_order = self.sign_order(&order).await?;
-        
+
         let order_type = params.order_type.unwrap_or(OrderKind::Fok);
         // Market orders are usually FOK
-        
+
         self.post_order(&signed_order, order_type, false) // Market orders cannot be post_only
             .await
     }
@@ -538,7 +538,9 @@ impl ClobBuilder {
                 .timeout_ms(self.timeout_ms)
                 .pool_size(self.pool_size)
                 .build()
-                .map_err(|e| ClobError::service(format!("Failed to build default Gamma client: {}", e)))?
+                .map_err(|e| {
+                    ClobError::service(format!("Failed to build default Gamma client: {}", e))
+                })?
         };
 
         Ok(Clob {
