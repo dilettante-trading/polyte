@@ -1,3 +1,12 @@
+## [0.6.0] - 2026-02-19
+
+### 🚀 Features
+
+- *(relay)* Add gas estimation for redemption transactions with safety buffer and relayer overhead
+- *(relay)* Add `estimate_redemption_gas` method to estimate gas costs using RPC provider simulation
+- *(relay)* Add `submit_gasless_redemption_with_gas_estimation` method for redemptions with optional gas estimation
+- *(relay)* Add default RPC URLs to contract configuration for Polygon mainnet and Amoy testnet
+
 ## [0.5.0] - 2026-02-19
 
 ### 🚀 Features
