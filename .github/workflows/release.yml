@@ -1,7 +1,9 @@
 name: Release
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -15,12 +17,25 @@ env:
 jobs:
   version:
     name: Get Version
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
       should_release: ${{ steps.check.outputs.should_release }}
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
+      - name: Get commit SHA
+        id: sha
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.sha.outputs.sha }}
 
       - name: Extract version from Cargo.toml
         id: version
@@ -42,27 +57,18 @@ jobs:
             echo "Release v${{ steps.version.outputs.version }} does not exist"
           fi
 
-  test:
-    name: Test
-    needs: version
-    if: needs.version.outputs.should_release == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo test --verbose --workspace
-
   publish:
     name: Publish to crates.io
     if: |
       needs.version.outputs.should_release == 'true' &&
       github.repository == 'dilettante-trading/polyoxide'
-    needs: [version, test]
+    needs: version
     runs-on: ubuntu-latest
     environment: cargo
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -172,7 +178,7 @@ jobs:
 
   build-cli:
     name: Build CLI (${{ matrix.target }})
-    needs: [version, test]
+    needs: version
     if: needs.version.outputs.should_release == 'true'
     strategy:
       fail-fast: false
@@ -191,6 +197,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -241,6 +249,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.version.outputs.sha }}
           fetch-depth: 0
 
       - name: Create git tag
