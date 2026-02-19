@@ -254,7 +254,7 @@ impl RelayClient {
             #[serde(rename = "gasPrice")]
             gas_price: String,
             operation: String,
-            #[serde(rename = "safeTxGas")]
+            #[serde(rename = "safeTxnGas")]
             safe_tx_gas: String,
             #[serde(rename = "baseGas")]
             base_gas: String,
