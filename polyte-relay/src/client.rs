@@ -90,16 +90,16 @@ impl RelayClient {
     pub async fn get_nonce(&self, address: Address) -> Result<u64, RelayError> {
         let url = self
             .base_url
-            .join("get-nonce")?
-            .join(&format!("?address={}&type=SAFE", address))?;
-        let resp = self
-            .client
-            .get(url)
-            .send()
-            .await?
-            .json::<NonceResponse>()
-            .await?;
-        Ok(resp.nonce)
+            .join(&format!("nonce?address={}&type=SAFE", address))?;
+        let resp = self.client.get(url).send().await?;
+
+        if !resp.status().is_success() {
+            let text = resp.text().await?;
+            return Err(RelayError::Api(format!("get_nonce failed: {}", text)));
+        }
+
+        let data = resp.json::<NonceResponse>().await?;
+        Ok(data.nonce)
     }
 
     pub async fn get_transaction(
@@ -108,16 +108,15 @@ impl RelayClient {
     ) -> Result<TransactionStatusResponse, RelayError> {
         let url = self
             .base_url
-            .join("get-transaction")?
-            .join(&format!("?id={}", transaction_id))?;
-        let resp = self
-            .client
-            .get(url)
-            .send()
-            .await?
-            .json::<TransactionStatusResponse>()
-            .await?;
-        Ok(resp)
+            .join(&format!("transaction?id={}", transaction_id))?;
+        let resp = self.client.get(url).send().await?;
+
+        if !resp.status().is_success() {
+            let text = resp.text().await?;
+            return Err(RelayError::Api(format!("get_transaction failed: {}", text)));
+        }
+
+        resp.json::<TransactionStatusResponse>().await.map_err(Into::into)
     }
 
     pub async fn get_deployed(&self, safe_address: Address) -> Result<bool, RelayError> {
@@ -127,16 +126,16 @@ impl RelayClient {
         }
         let url = self
             .base_url
-            .join("get-deployed")?
-            .join(&format!("?address={}", safe_address))?;
-        let resp = self
-            .client
-            .get(url)
-            .send()
-            .await?
-            .json::<DeployedResponse>()
-            .await?;
-        Ok(resp.deployed)
+            .join(&format!("deployed?address={}", safe_address))?;
+        let resp = self.client.get(url).send().await?;
+
+        if !resp.status().is_success() {
+            let text = resp.text().await?;
+            return Err(RelayError::Api(format!("get_deployed failed: {}", text)));
+        }
+
+        let data = resp.json::<DeployedResponse>().await?;
+        Ok(data.deployed)
     }
 
     fn derive_safe_address(&self, owner: Address) -> Address {
@@ -216,7 +215,7 @@ impl RelayClient {
         let from_address = account.address();
         
         let safe_address = self.derive_safe_address(from_address);
-        
+
         if !self.get_deployed(safe_address).await? {
             return Err(RelayError::Api(format!("Safe {} is not deployed", safe_address)));
         }
@@ -304,7 +303,7 @@ impl RelayClient {
             metadata,
         };
 
-        self._post_request("submit-transaction", &body).await
+        self._post_request("submit", &body).await
     }
 
 
@@ -354,10 +353,12 @@ impl RelayClient {
     ) -> Result<RelayerTransactionResponse, RelayError> {
         let url = self.base_url.join(endpoint)?;
         let body_str = serde_json::to_string(body)?;
-        
-        let headers = if let Some(account) = &self.account {
+
+        tracing::debug!("POST {} with body: {}", url, body_str);
+
+        let mut headers = if let Some(account) = &self.account {
             if let Some(config) = account.config() {
-                config.generate_headers("POST", url.path(), Some(&body_str))
+                config.generate_relayer_v2_headers("POST", url.path(), Some(&body_str))
                     .map_err(RelayError::Api)?
             } else {
                 return Err(RelayError::Api("Builder config missing - cannot authenticate request".to_string()));
@@ -366,19 +367,41 @@ impl RelayClient {
              return Err(RelayError::Api("Account missing - cannot authenticate request".to_string()));
         };
 
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            reqwest::header::HeaderValue::from_static("application/json"),
+        );
+
         let resp = self.client
-            .post(url)
+            .post(url.clone())
             .headers(headers)
-            .body(body_str)
+            .body(body_str.clone())
             .send()
             .await?;
-            
-        if !resp.status().is_success() {
+
+        let status = resp.status();
+        tracing::debug!("Response status for {}: {}", endpoint, status);
+
+        if !status.is_success() {
              let text = resp.text().await?;
+             tracing::error!("Request to {} failed with status {}: {}", endpoint, status, text);
              return Err(RelayError::Api(format!("Request failed: {}", text)));
         }
 
-        Ok(resp.json().await?)
+        // Get raw response text before attempting to decode
+        let response_text = resp.text().await?;
+        tracing::debug!("Raw response body from {}: {}", endpoint, response_text);
+
+        // Try to deserialize
+        serde_json::from_str(&response_text).map_err(|e| {
+            tracing::error!(
+                "Failed to decode response from {}: {}. Raw body: {}",
+                endpoint,
+                e,
+                response_text
+            );
+            RelayError::SerdeJson(e)
+        })
     }
 }
 
