@@ -10,6 +10,7 @@ use alloy::signers::Signer;
 use alloy::sol_types::{Eip712Domain, SolCall, SolStruct, SolValue};
 use reqwest::Client;
 use serde::Serialize;
+use std::time::{Duration, Instant};
 use url::Url;
 
 // Safe Init Code Hash from constants.py
@@ -55,6 +56,35 @@ impl RelayClient {
 
     pub fn address(&self) -> Option<Address> {
         self.account.as_ref().map(|a| a.address())
+    }
+
+    /// Measure the round-trip time (RTT) to the Relay API.
+    ///
+    /// Makes a GET request to the API base URL and returns the latency.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use polyte_relay::RelayClient;
+    ///
+    /// # async fn example() -> Result<(), polyte_relay::RelayError> {
+    /// let client = RelayClient::builder("https://relayer.polymarket.com", 137)?.build()?;
+    /// let latency = client.ping().await?;
+    /// println!("API latency: {}ms", latency.as_millis());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn ping(&self) -> Result<Duration, RelayError> {
+        let start = Instant::now();
+        let response = self.client.get(self.base_url.clone()).send().await?;
+        let latency = start.elapsed();
+
+        if !response.status().is_success() {
+            let text = response.text().await?;
+            return Err(RelayError::Api(format!("Ping failed: {}", text)));
+        }
+
+        Ok(latency)
     }
 
     pub async fn get_nonce(&self, address: Address) -> Result<u64, RelayError> {
@@ -277,23 +307,25 @@ impl RelayClient {
         self._post_request("submit-transaction", &body).await
     }
 
+
     pub async fn submit_gasless_redemption(
         &self,
         condition_id: [u8; 32],
         index_sets: Vec<alloy::primitives::U256>,
     ) -> Result<RelayerTransactionResponse, RelayError> {
-        let account = self.account.as_ref().ok_or(RelayError::MissingSigner)?;
-        let safe_address = self.derive_safe_address(account.address());
-
-        // CTF Contract Interface
+        // 1. Define the specific interface for redemption
         alloy::sol! {
             function redeemPositions(address collateral, bytes32 parentCollectionId, bytes32 conditionId, uint256[] indexSets);
         }
 
+        // 2. Setup Constants
+        // USDC on Polygon
         let collateral = Address::parse_checksummed("0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", None).unwrap();
-        let parent_collection_id = [0u8; 32]; // bytes32(0)
+        // CTF Exchange Address on Polygon
+        let ctf_exchange = Address::parse_checksummed("0x4D97DCd97eC945f40cF65F87097ACe5EA0476045", None).unwrap();
+        let parent_collection_id = [0u8; 32];
 
-        // Encode calldata
+        // 3. Encode the Calldata
         let call = redeemPositionsCall {
             collateral,
             parentCollectionId: parent_collection_id.into(),
@@ -301,66 +333,18 @@ impl RelayClient {
             indexSets: index_sets,
         };
         let data = call.abi_encode();
-        let data_hex = format!("0x{}", hex::encode(data));
 
-        // Construct Body
-        #[derive(Serialize)]
-        struct InnerTx {
-            to: String,
-            value: String,
-            data: String,
-            operation: u8,
-        }
-
-        #[derive(Serialize)]
-        struct RedemptionBody {
-            #[serde(rename = "chainId")]
-            chain_id: u64,
-            #[serde(rename = "safeAddress")]
-            safe_address: String,
-            transactions: Vec<InnerTx>,
-        }
-
-        let body = RedemptionBody {
-            chain_id: 137,
-            safe_address: safe_address.to_string(),
-            transactions: vec![InnerTx {
-                to: "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045".to_string(), // CTF Exchange
-                value: "0".to_string(),
-                data: data_hex,
-                operation: 0,
-            }],
+        // 4. Construct the SafeTransaction
+        let tx = SafeTransaction {
+            to: ctf_exchange,
+            value: U256::ZERO,
+            data: data.into(),
+            operation: 0, // 0 = Call (Not DelegateCall)
         };
 
-        // Send Request
-        // Note: Using hardcoded URL as per requirements
-        let url = Url::parse("https://relayer-v2.polymarket.com/transactions").map_err(|e| RelayError::Api(e.to_string()))?;
-        let body_str = serde_json::to_string(&body)?;
-
-        let headers = if let Some(config) = account.config() {
-            config
-                .generate_relayer_v2_headers("POST", url.path(), Some(&body_str))
-                .map_err(RelayError::Api)?
-        } else {
-            return Err(RelayError::Api(
-                "Builder config missing - cannot authenticate request".to_string(),
-            ));
-        };
-
-        let resp = self
-            .client
-            .post(url)
-            .headers(headers)
-            .body(body_str)
-            .send()
-            .await?;
-
-        if !resp.status().is_success() {
-            let text = resp.text().await?;
-            return Err(RelayError::Api(format!("Request failed: {}", text)));
-        }
-
-        Ok(resp.json().await?)
+        // 5. Use the existing execute method
+        // This handles Nonce fetching, EIP-712 Signing, and Relayer submission.
+        self.execute(vec![tx], None).await
     }
 
     async fn _post_request<T: Serialize>(
