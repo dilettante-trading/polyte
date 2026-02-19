@@ -13,9 +13,7 @@
 //! POLYMARKET_API_PASSPHRASE=...
 //! ```
 
-use alloy::primitives::Address;
 use polyoxide_clob::{Account, Clob, CreateOrderParams, OrderKind, OrderSide};
-use std::str::FromStr;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

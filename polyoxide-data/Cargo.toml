@@ -23,4 +23,4 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 url = { workspace = true }
 tracing = { workspace = true }
-specta = { version = "=2.0.0-rc.20", features = ["serde"], optional = true }
+specta = { version = "=2.0.0-rc.20", features = ["derive", "serde"], optional = true }

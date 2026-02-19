@@ -231,6 +231,7 @@ impl RelayClient {
     }
 
     /// Create the proxy struct hash for signing (EIP-712 style but with specific fields)
+    #[allow(clippy::too_many_arguments)]
     fn create_proxy_struct_hash(
         &self,
         from: Address,

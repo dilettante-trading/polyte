@@ -9,9 +9,7 @@ use sha2::Sha256;
 use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-// Proxy Init Code Hash for CREATE2 derivation
-pub const PROXY_INIT_CODE_HASH: &str =
-    "5765fabc5c0cae4de8e0d2a21514faa7a36c35e71bee7558c37cd7bb3c64c5fc";
+
 
 #[derive(Clone, Debug)]
 pub struct ContractConfig {
