@@ -9,8 +9,6 @@ use sha2::Sha256;
 use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-
-
 #[derive(Clone, Debug)]
 pub struct ContractConfig {
     pub safe_factory: Address,
