@@ -2730,7 +2730,7 @@ dependencies = [
 
 [[package]]
 name = "polyoxide"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "polyoxide-clob",
  "polyoxide-data",
@@ -2741,7 +2741,7 @@ dependencies = [
 
 [[package]]
 name = "polyoxide-cli"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "clap",
  "clap_complete",
@@ -2758,7 +2758,7 @@ dependencies = [
 
 [[package]]
 name = "polyoxide-clob"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "alloy",
  "anyhow",
@@ -2787,11 +2787,14 @@ dependencies = [
 
 [[package]]
 name = "polyoxide-core"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
+ "base64",
+ "hmac",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.17",
  "tracing",
  "url",
@@ -2799,7 +2802,7 @@ dependencies = [
 
 [[package]]
 name = "polyoxide-data"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "polyoxide-core",
  "reqwest",
@@ -2814,7 +2817,7 @@ dependencies = [
 
 [[package]]
 name = "polyoxide-gamma"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "chrono",
  "polyoxide-core",
@@ -2832,13 +2835,14 @@ dependencies = [
 
 [[package]]
 name = "polyoxide-relay"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "alloy",
  "base64",
  "dotenvy",
  "hex",
  "hmac",
+ "polyoxide-core",
  "reqwest",
  "serde",
  "serde_json",

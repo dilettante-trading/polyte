@@ -1,3 +1,27 @@
+## [0.6.1] - 2026-02-20
+
+### 🚀 Features
+
+- *(core)* Add unified authentication module with HMAC signing and timestamp generation
+- *(core)* Add `Signer` struct supporting multiple base64 formats (URL-safe and standard)
+- *(core)* Add `current_timestamp()` function for safe Unix timestamp generation
+- *(core)* Add `Base64Format` enum to support both URL-safe and standard base64 encoding
+- *(core)* Add `impl_api_error_conversions!` macro to reduce error conversion boilerplate
+
+### 🚜 Refactor
+
+- *(core)* Consolidate HMAC signing logic from CLOB and Relay into shared `Signer` implementation
+- *(core)* Consolidate timestamp generation into single safe implementation
+- *(clob)* Refactor `Signer` to use `polyoxide_core::Signer` as thin wrapper with CLOB-specific error handling
+- *(clob)* Extract market metadata fetching into `get_market_metadata()` helper method
+- *(clob)* Extract fee rate fetching into `get_fee_rate()` helper method
+- *(clob)* Extract maker address resolution into `resolve_maker_address()` helper method
+- *(clob)* Extract order building into `build_order()` helper method
+- *(clob)* Simplify `create_order()` and `create_market_order()` by using extracted helpers (~140 lines removed)
+- *(relay)* Update to use `polyoxide_core::Signer` and `current_timestamp()` for authentication
+- *(gamma)* Use `impl_api_error_conversions!` macro to reduce error conversion boilerplate
+- *(data)* Use `impl_api_error_conversions!` macro to reduce error conversion boilerplate
+
 ## [0.6.0] - 2026-02-19
 
 ### 🚀 Features
