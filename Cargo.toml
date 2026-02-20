@@ -23,6 +23,7 @@ polyoxide-core = { path = "polyoxide-core", version = "0.6.1" }
 polyoxide-clob = { path = "polyoxide-clob", version = "0.6.1" }
 polyoxide-gamma = { path = "polyoxide-gamma", version = "0.6.1" }
 polyoxide-data = { path = "polyoxide-data", version = "0.6.1" }
+polyoxide-relay = { path = "polyoxide-relay", version = "0.6.1" }
 tokio = { version = "1.41", features = ["full"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
