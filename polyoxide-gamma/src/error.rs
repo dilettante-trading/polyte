@@ -15,14 +15,5 @@ impl RequestError for GammaError {
     }
 }
 
-impl From<reqwest::Error> for GammaError {
-    fn from(err: reqwest::Error) -> Self {
-        Self::Api(ApiError::Network(err))
-    }
-}
-
-impl From<url::ParseError> for GammaError {
-    fn from(err: url::ParseError) -> Self {
-        Self::Api(ApiError::Url(err))
-    }
-}
+// Implement standard error conversions using the macro
+polyoxide_core::impl_api_error_conversions!(GammaError);

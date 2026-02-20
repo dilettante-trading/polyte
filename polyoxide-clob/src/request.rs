@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use alloy::primitives::Address;
-use polyoxide_core::request::QueryBuilder;
+use polyoxide_core::{current_timestamp, request::QueryBuilder};
 use reqwest::{Client, Method, Response};
 use serde::de::DeserializeOwned;
 use url::Url;
@@ -9,7 +9,6 @@ use url::Url;
 use crate::{
     account::{Credentials, Signer, Wallet},
     error::ClobError,
-    utils::current_timestamp,
 };
 
 /// Authentication mode for requests

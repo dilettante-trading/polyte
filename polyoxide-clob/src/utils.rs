@@ -1,19 +1,9 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use rand::Rng;
 
 use crate::{
     api::markets::OrderLevel,
     types::{OrderSide, TickSize},
 };
-
-/// Get current Unix timestamp in seconds
-pub fn current_timestamp() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-}
 
 /// Calculate maker and taker amounts for an order using f64 arithmetic.
 ///

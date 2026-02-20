@@ -125,99 +125,35 @@ impl Clob {
 
         params.validate()?;
 
-        // Fetch or use provided neg_risk status
-        let neg_risk = if let Some(neg_risk) = options.and_then(|o| o.neg_risk) {
-            neg_risk
-        } else {
-            let neg_risk_resp = self
-                .markets()
-                .neg_risk(params.token_id.clone())
-                .send()
-                .await?;
-            neg_risk_resp.neg_risk
-        };
-
-        // Fetch or use provided tick size
-        let tick_size = if let Some(tick_size) = options.and_then(|o| o.tick_size) {
-            tick_size
-        } else {
-            let tick_size_resp = self
-                .markets()
-                .tick_size(params.token_id.clone())
-                .send()
-                .await?;
-            let tick_size_val = tick_size_resp
-                .minimum_tick_size
-                .parse::<f64>()
-                .map_err(|e| {
-                    ClobError::validation(format!("Invalid minimum_tick_size field: {}", e))
-                })?;
-            TickSize::try_from(tick_size_val)?
-        };
+        // Fetch market metadata (neg_risk and tick_size)
+        let (neg_risk, tick_size) = self.get_market_metadata(&params.token_id, options).await?;
 
         // Get fee rate
-        let fee_rate_response: serde_json::Value = self
-            .client
-            .get(self.base_url.join("/fee-rate")?)
-            .send()
-            .await?
-            .json()
-            .await?;
-
-        let fee_rate_bps = fee_rate_response["feeRateBps"]
-            .as_str()
-            .unwrap_or("0")
-            .to_string();
+        let fee_rate_bps = self.get_fee_rate().await?;
 
         // Calculate amounts
         let (maker_amount, taker_amount) =
             calculate_order_amounts(params.price, params.size, params.side, tick_size);
 
+        // Resolve maker address
         let signature_type = params.signature_type.unwrap_or_default();
-        let maker = if let Some(funder) = params.funder {
-            funder
-        } else if signature_type.is_proxy() {
-            // Fetch proxy from Gamma
-            let profile = self
-                .gamma
-                .user()
-                .get(account.address().to_string())
-                .send()
-                .await
-                .map_err(|e| ClobError::service(format!("Failed to fetch user profile: {}", e)))?;
+        let maker = self
+            .resolve_maker_address(params.funder, signature_type, account)
+            .await?;
 
-            profile
-                .proxy
-                .ok_or_else(|| {
-                    ClobError::validation(format!(
-                        "Signature type {:?} requires proxy, but none found for {}",
-                        signature_type,
-                        account.address()
-                    ))
-                })?
-                .parse::<Address>()
-                .map_err(|e| {
-                    ClobError::validation(format!("Invalid proxy address format from Gamma: {}", e))
-                })?
-        } else {
-            account.address()
-        };
-
-        Ok(Order {
-            salt: generate_salt(),
+        // Build order
+        Ok(Self::build_order(
+            params.token_id.clone(),
             maker,
-            signer: account.address(),
-            taker: alloy::primitives::Address::ZERO,
-            token_id: params.token_id.clone(),
+            account.address(),
             maker_amount,
             taker_amount,
-            expiration: params.expiration.unwrap_or(0).to_string(),
-            nonce: "0".to_string(),
             fee_rate_bps,
-            side: params.side,
+            params.side,
             signature_type,
             neg_risk,
-        })
+            params.expiration,
+        ))
     }
 
     /// Create an unsigned market order from parameters
@@ -238,35 +174,8 @@ impl Clob {
             )));
         }
 
-        // Fetch or use provided neg_risk status
-        let neg_risk = if let Some(neg_risk) = options.and_then(|o| o.neg_risk) {
-            neg_risk
-        } else {
-            let neg_risk_resp = self
-                .markets()
-                .neg_risk(params.token_id.clone())
-                .send()
-                .await?;
-            neg_risk_resp.neg_risk
-        };
-
-        // Fetch or use provided tick size
-        let tick_size = if let Some(tick_size) = options.and_then(|o| o.tick_size) {
-            tick_size
-        } else {
-            let tick_size_resp = self
-                .markets()
-                .tick_size(params.token_id.clone())
-                .send()
-                .await?;
-            let tick_size_val = tick_size_resp
-                .minimum_tick_size
-                .parse::<f64>()
-                .map_err(|e| {
-                    ClobError::validation(format!("Invalid minimum_tick_size field: {}", e))
-                })?;
-            TickSize::try_from(tick_size_val)?
-        };
+        // Fetch market metadata (neg_risk and tick_size)
+        let (neg_risk, tick_size) = self.get_market_metadata(&params.token_id, options).await?;
 
         // Determine price
         let price = if let Some(p) = params.price {
@@ -289,6 +198,79 @@ impl Clob {
         };
 
         // Get fee rate
+        let fee_rate_bps = self.get_fee_rate().await?;
+
+        // Calculate amounts
+        let (maker_amount, taker_amount) =
+            calculate_market_order_amounts(params.amount, price, params.side, tick_size);
+
+        // Resolve maker address
+        let signature_type = params.signature_type.unwrap_or_default();
+        let maker = self
+            .resolve_maker_address(params.funder, signature_type, account)
+            .await?;
+
+        // Build order with expiration set to 0 for market orders
+        Ok(Self::build_order(
+            params.token_id.clone(),
+            maker,
+            account.address(),
+            maker_amount,
+            taker_amount,
+            fee_rate_bps,
+            params.side,
+            signature_type,
+            neg_risk,
+            Some(0),
+        ))
+    }
+    pub async fn sign_order(&self, order: &Order) -> Result<SignedOrder, ClobError> {
+        let account = self
+            .account
+            .as_ref()
+            .ok_or_else(|| ClobError::validation("Account required to sign order"))?;
+        account.sign_order(order, self.chain_id).await
+    }
+
+    // Helper methods for order creation
+
+    /// Fetch market metadata (neg_risk and tick_size) for a token
+    async fn get_market_metadata(
+        &self,
+        token_id: &str,
+        options: Option<PartialCreateOrderOptions>,
+    ) -> Result<(bool, TickSize), ClobError> {
+        // Fetch or use provided neg_risk status
+        let neg_risk = if let Some(neg_risk) = options.and_then(|o| o.neg_risk) {
+            neg_risk
+        } else {
+            let neg_risk_resp = self.markets().neg_risk(token_id.to_string()).send().await?;
+            neg_risk_resp.neg_risk
+        };
+
+        // Fetch or use provided tick size
+        let tick_size = if let Some(tick_size) = options.and_then(|o| o.tick_size) {
+            tick_size
+        } else {
+            let tick_size_resp = self
+                .markets()
+                .tick_size(token_id.to_string())
+                .send()
+                .await?;
+            let tick_size_val = tick_size_resp
+                .minimum_tick_size
+                .parse::<f64>()
+                .map_err(|e| {
+                    ClobError::validation(format!("Invalid minimum_tick_size field: {}", e))
+                })?;
+            TickSize::try_from(tick_size_val)?
+        };
+
+        Ok((neg_risk, tick_size))
+    }
+
+    /// Fetch the current fee rate from the API
+    async fn get_fee_rate(&self) -> Result<String, ClobError> {
         let fee_rate_response: serde_json::Value = self
             .client
             .get(self.base_url.join("/fee-rate")?)
@@ -297,18 +279,21 @@ impl Clob {
             .json()
             .await?;
 
-        let fee_rate_bps = fee_rate_response["feeRateBps"]
+        Ok(fee_rate_response["feeRateBps"]
             .as_str()
             .unwrap_or("0")
-            .to_string();
+            .to_string())
+    }
 
-        // Calculate amounts
-        let (maker_amount, taker_amount) =
-            calculate_market_order_amounts(params.amount, price, params.side, tick_size);
-
-        let signature_type = params.signature_type.unwrap_or_default();
-        let maker = if let Some(funder) = params.funder {
-            funder
+    /// Resolve the maker address based on funder and signature type
+    async fn resolve_maker_address(
+        &self,
+        funder: Option<Address>,
+        signature_type: SignatureType,
+        account: &Account,
+    ) -> Result<Address, ClobError> {
+        if let Some(funder) = funder {
+            Ok(funder)
         } else if signature_type.is_proxy() {
             // Fetch proxy from Gamma
             let profile = self
@@ -331,35 +316,41 @@ impl Clob {
                 .parse::<Address>()
                 .map_err(|e| {
                     ClobError::validation(format!("Invalid proxy address format from Gamma: {}", e))
-                })?
+                })
         } else {
-            account.address()
-        };
+            Ok(account.address())
+        }
+    }
 
-        Ok(Order {
+    /// Build an Order struct from the provided parameters
+    #[allow(clippy::too_many_arguments)]
+    fn build_order(
+        token_id: String,
+        maker: Address,
+        signer: Address,
+        maker_amount: String,
+        taker_amount: String,
+        fee_rate_bps: String,
+        side: OrderSide,
+        signature_type: SignatureType,
+        neg_risk: bool,
+        expiration: Option<u64>,
+    ) -> Order {
+        Order {
             salt: generate_salt(),
             maker,
-            signer: account.address(),
+            signer,
             taker: alloy::primitives::Address::ZERO,
-            token_id: params.token_id.clone(),
+            token_id,
             maker_amount,
             taker_amount,
-            // Market orders (FOK) usually technically expire immediately or 0?
-            // Python sets "0" expiration for market/FOK orders.
-            expiration: "0".to_string(),
+            expiration: expiration.unwrap_or(0).to_string(),
             nonce: "0".to_string(),
             fee_rate_bps,
-            side: params.side,
+            side,
             signature_type,
             neg_risk,
-        })
-    }
-    pub async fn sign_order(&self, order: &Order) -> Result<SignedOrder, ClobError> {
-        let account = self
-            .account
-            .as_ref()
-            .ok_or_else(|| ClobError::validation("Account required to sign order"))?;
-        account.sign_order(order, self.chain_id).await
+        }
     }
 
     /// Post a signed order

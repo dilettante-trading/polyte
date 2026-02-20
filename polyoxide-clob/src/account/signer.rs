@@ -1,50 +1,39 @@
-use base64::{engine::general_purpose::STANDARD, prelude::BASE64_URL_SAFE_NO_PAD, Engine};
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
+//! Re-export of shared HMAC signer from polyoxide-core
+//!
+//! This module provides a thin wrapper around the unified Signer implementation
+//! to maintain backward compatibility with the CLOB API client.
+
+pub use polyoxide_core::{Base64Format, Signer as CoreSigner};
 
 use crate::error::ClobError;
 
 /// HMAC signer for API authentication
+///
+/// This is a thin wrapper around the shared `polyoxide_core::Signer` that provides
+/// CLOB-specific error handling.
 #[derive(Clone, Debug)]
 pub struct Signer {
-    secret: Vec<u8>,
+    inner: CoreSigner,
 }
 
 impl Signer {
     /// Create a new signer from base64-encoded secret (supports multiple formats)
     pub fn new(secret: &str) -> Result<Self, ClobError> {
-        // Try different base64 formats:
-        // 1. URL-safe without padding (most common for API keys)
-        // 2. URL-safe with padding
-        // 3. Standard base64
-        // 4. Use raw bytes if all else fails
-        let decoded = BASE64_URL_SAFE_NO_PAD
-            .decode(secret)
-            .or_else(|_| base64::engine::general_purpose::URL_SAFE.decode(secret))
-            .or_else(|_| STANDARD.decode(secret))
-            .unwrap_or_else(|_| secret.as_bytes().to_vec());
-
-        Ok(Self { secret: decoded })
+        let inner = CoreSigner::new(secret)
+            .map_err(|e| ClobError::Crypto(format!("Failed to create signer: {}", e)))?;
+        Ok(Self { inner })
     }
 
-    /// Sign a message with HMAC-SHA256
+    /// Sign a message with HMAC-SHA256, using URL-safe base64 encoding
     pub fn sign(&self, message: &str) -> Result<String, ClobError> {
-        let mut mac = Hmac::<Sha256>::new_from_slice(&self.secret)
-            .map_err(|e| ClobError::Crypto(format!("Failed to create HMAC: {}", e)))?;
-
-        mac.update(message.as_bytes());
-        let result = mac.finalize();
-        let signature = STANDARD.encode(result.into_bytes());
-
-        // Convert to URL-safe base64
-        let signature = signature.replace('+', "-").replace('/', "_");
-
-        Ok(signature)
+        self.inner
+            .sign(message, Base64Format::UrlSafe)
+            .map_err(ClobError::Crypto)
     }
 
     /// Create signature message for API request
     pub fn create_message(timestamp: u64, method: &str, path: &str, body: Option<&str>) -> String {
-        format!("{}{}{}{}", timestamp, method, path, body.unwrap_or(""))
+        CoreSigner::create_message(timestamp, method, path, body)
     }
 }
 
