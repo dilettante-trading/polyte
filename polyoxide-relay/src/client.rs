@@ -79,7 +79,7 @@ impl RelayClient {
     /// use polyoxide_relay::RelayClient;
     ///
     /// # async fn example() -> Result<(), polyoxide_relay::RelayError> {
-    /// let client = RelayClient::builder("https://relayer.polymarket.com", 137)?.build()?;
+    /// let client = RelayClient::builder("https://relayer-v2.polymarket.com"", 137)?.build()?;
     /// let latency = client.ping().await?;
     /// println!("API latency: {}ms", latency.as_millis());
     /// # Ok(())
@@ -876,5 +876,20 @@ impl RelayClientBuilder {
             contract_config,
             wallet_type: self.wallet_type,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_ping() {
+        let client = RelayClient::builder("https://relayer-v2.polymarket.com", 137)
+            .unwrap()
+            .build()
+            .unwrap();
+        let result = client.ping().await;
+        assert!(result.is_ok(), "ping failed: {:?}", result.err());
     }
 }
