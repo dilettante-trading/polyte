@@ -42,9 +42,7 @@ impl RelayClient {
         config: Option<BuilderConfig>,
     ) -> Result<Self, RelayError> {
         let account = BuilderAccount::new(private_key, config)?;
-        Self::builder()?
-            .with_account(account)
-            .build()
+        Self::builder()?.with_account(account).build()
     }
 
     /// Create a new Relay client builder
@@ -58,12 +56,8 @@ impl RelayClient {
     }
 
     /// Create a new Relay client from a BuilderAccount
-    pub fn from_account(
-        account: BuilderAccount,
-    ) -> Result<Self, RelayError> {
-        Self::builder()?
-            .with_account(account)
-            .build()
+    pub fn from_account(account: BuilderAccount) -> Result<Self, RelayError> {
+        Self::builder()?.with_account(account).build()
     }
 
     pub fn address(&self) -> Option<Address> {
@@ -844,7 +838,11 @@ impl Default for RelayClientBuilder {
             .parse::<u64>()
             .unwrap_or(137);
 
-        Self::new().unwrap().url(&relayer_url).unwrap().chain_id(chain_id)
+        Self::new()
+            .unwrap()
+            .url(&relayer_url)
+            .unwrap()
+            .chain_id(chain_id)
     }
 }
 
@@ -913,10 +911,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ping() {
-        let client = RelayClient::builder()
-            .unwrap()
-            .build()
-            .unwrap();
+        let client = RelayClient::builder().unwrap().build().unwrap();
         let result = client.ping().await;
         assert!(result.is_ok(), "ping failed: {:?}", result.err());
     }
