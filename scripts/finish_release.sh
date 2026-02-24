@@ -4,12 +4,15 @@ set -e
 # Polyoxide Release Recovery Script
 # Use this to finish publishing crates if the main release process failed.
 
-echo "🚀 Starting manual release recovery..."
+echo "🚀 Starting manual release..."
 
-# Core is likely already published, but we can check or just skip if we know it is.
-# Uncomment if you need to retry core.
-# echo "Publishing polyoxide-core..."
-# cargo publish -p polyoxide-core
+echo "📦 Publishing polyoxide-core..."
+cargo publish -p polyoxide-core
+echo "✅ polyoxide-core published"
+
+echo "📦 Publishing polyoxide-relay..."
+cargo publish -p polyoxide-relay
+echo "✅ polyoxide-relay published"
 
 echo "📦 Publishing polyoxide-gamma..."
 cargo publish -p polyoxide-gamma
@@ -18,10 +21,6 @@ echo "✅ polyoxide-gamma published"
 echo "📦 Publishing polyoxide-data..."
 cargo publish -p polyoxide-data
 echo "✅ polyoxide-data published"
-
-echo "📦 Publishing polyoxide-relay..."
-cargo publish -p polyoxide-relay
-echo "✅ polyoxide-relay published"
 
 # Wait for index propagation
 echo "⏳ Waiting 30s for index propagation..."

@@ -132,7 +132,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // Create relay client for Polygon mainnet
-    let client = RelayClient::builder("https://relayer-v2.polymarket.com", 137)?
+    let client = RelayClient::default_builder()?
         .with_account(account)
         .wallet_type(WalletType::Proxy)
         .build()?;

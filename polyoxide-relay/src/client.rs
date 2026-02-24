@@ -38,29 +38,30 @@ pub struct RelayClient {
 impl RelayClient {
     /// Create a new Relay client with authentication
     pub fn new(
-        base_url: &str,
-        chain_id: u64,
         private_key: impl Into<String>,
         config: Option<BuilderConfig>,
     ) -> Result<Self, RelayError> {
         let account = BuilderAccount::new(private_key, config)?;
-        Self::builder(base_url, chain_id)?
+        Self::builder()?
             .with_account(account)
             .build()
     }
 
     /// Create a new Relay client builder
-    pub fn builder(base_url: &str, chain_id: u64) -> Result<RelayClientBuilder, RelayError> {
-        RelayClientBuilder::new(base_url, chain_id)
+    pub fn builder() -> Result<RelayClientBuilder, RelayError> {
+        RelayClientBuilder::new()
+    }
+
+    /// Create a new Relay client builder pulling settings from environment
+    pub fn default_builder() -> Result<RelayClientBuilder, RelayError> {
+        Ok(RelayClientBuilder::default())
     }
 
     /// Create a new Relay client from a BuilderAccount
     pub fn from_account(
-        base_url: &str,
-        chain_id: u64,
         account: BuilderAccount,
     ) -> Result<Self, RelayError> {
-        Self::builder(base_url, chain_id)?
+        Self::builder()?
             .with_account(account)
             .build()
     }
@@ -79,7 +80,7 @@ impl RelayClient {
     /// use polyoxide_relay::RelayClient;
     ///
     /// # async fn example() -> Result<(), polyoxide_relay::RelayError> {
-    /// let client = RelayClient::builder("https://relayer-v2.polymarket.com"", 137)?.build()?;
+    /// let client = RelayClient::builder()?.build()?;
     /// let latency = client.ping().await?;
     /// println!("API latency: {}ms", latency.as_millis());
     /// # Ok(())
@@ -619,7 +620,7 @@ impl RelayClient {
     ///     None,
     /// );
     /// let account = BuilderAccount::new("0x...", Some(builder_config))?;
-    /// let client = RelayClient::builder("https://relayer-v2.polymarket.com", 137)?
+    /// let client = RelayClient::builder()?
     ///     .with_account(account)
     ///     .wallet_type(WalletType::Proxy)
     ///     .build()?;
@@ -834,19 +835,46 @@ pub struct RelayClientBuilder {
     wallet_type: WalletType,
 }
 
+impl Default for RelayClientBuilder {
+    fn default() -> Self {
+        let relayer_url = std::env::var("RELAYER_URL")
+            .unwrap_or_else(|_| "https://relayer-v2.polymarket.com/".to_string());
+        let chain_id = std::env::var("CHAIN_ID")
+            .unwrap_or("137".to_string())
+            .parse::<u64>()
+            .unwrap_or(137);
+
+        Self::new().unwrap().url(&relayer_url).unwrap().chain_id(chain_id)
+    }
+}
+
 impl RelayClientBuilder {
-    pub fn new(base_url: &str, chain_id: u64) -> Result<Self, RelayError> {
-        let mut base_url = Url::parse(base_url)?;
+    pub fn new() -> Result<Self, RelayError> {
+        let mut base_url = Url::parse("https://relayer-v2.polymarket.com")?;
         if !base_url.path().ends_with('/') {
             base_url.set_path(&format!("{}/", base_url.path()));
         }
 
         Ok(Self {
             base_url: base_url.to_string(),
-            chain_id,
+            chain_id: 137,
             account: None,
             wallet_type: WalletType::default(),
         })
+    }
+
+    pub fn chain_id(mut self, chain_id: u64) -> Self {
+        self.chain_id = chain_id;
+        self
+    }
+
+    pub fn url(mut self, url: &str) -> Result<Self, RelayError> {
+        let mut base_url = Url::parse(url)?;
+        if !base_url.path().ends_with('/') {
+            base_url.set_path(&format!("{}/", base_url.path()));
+        }
+        self.base_url = base_url.to_string();
+        Ok(self)
     }
 
     pub fn with_account(mut self, account: BuilderAccount) -> Self {
@@ -885,7 +913,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ping() {
-        let client = RelayClient::builder("https://relayer-v2.polymarket.com", 137)
+        let client = RelayClient::builder()
             .unwrap()
             .build()
             .unwrap();

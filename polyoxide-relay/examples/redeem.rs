@@ -27,7 +27,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let account = BuilderAccount::new(pk, Some(builder_config))?;
 
     println!("Initializing RelayClient...");
-    let client = RelayClient::builder(relay_url, chain_id)?
+    let client = RelayClient::default_builder()?
+        .url(relay_url)?
         .with_account(account)
         .wallet_type(WalletType::Proxy)
         .build()?;

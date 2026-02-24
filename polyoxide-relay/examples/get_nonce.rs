@@ -1,16 +1,11 @@
 use dotenvy::dotenv;
-use polyoxide_relay::{BuilderConfig, RelayClient};
+use polyoxide_relay::{BuilderAccount, BuilderConfig, RelayClient};
 use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
 
-    let relayer_url = env::var("RELAYER_URL")
-        .unwrap_or_else(|_| "https://relayer-v2-staging.polymarket.dev/".to_string());
-    let chain_id = env::var("CHAIN_ID")
-        .unwrap_or("80002".to_string())
-        .parse::<u64>()?;
     let pk = env::var("PK").expect("PK must be set");
 
     // Optional builder creds
@@ -24,7 +19,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    let client = RelayClient::new(&relayer_url, chain_id, pk, builder_config)?;
+    let client = RelayClient::default_builder()?
+        .with_account(BuilderAccount::new(pk, builder_config)?)
+        .build()?;
 
     println!("Signer address: {:?}", client.address());
 
