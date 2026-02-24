@@ -116,6 +116,9 @@ pub struct OrderResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all(deserialize = "camelCase"))]
 pub struct CancelResponse {
+    #[serde(default)]
     pub success: bool,
     pub error_msg: Option<String>,
+    pub canceled_order_id: Option<String>,
+    pub message: Option<String>,
 }
