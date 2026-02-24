@@ -1,3 +1,10 @@
+## [0.7.0] - 2026-02-24
+
+### 🚀 Features
+
+- *(relay)* Update builder to default to Polygon Mainnet (137) and relay V2 (`https://relayer-v2.polymarket.com/`)
+- *(relay)* Update `RelayClientBuilder` to implement `Default`
+
 ## [0.6.1] - 2026-02-20
 
 ### 🚀 Features
