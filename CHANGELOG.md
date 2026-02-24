@@ -1,3 +1,9 @@
+## [0.7.1] - 2026-02-24
+
+### 🐛 Bug Fixes
+
+- *(clob)* Add `canceled_order_id` and `message` fields to `CancelResponse` and mark `success` as default.
+
 ## [0.7.0] - 2026-02-24
 
 ### 🚀 Features
