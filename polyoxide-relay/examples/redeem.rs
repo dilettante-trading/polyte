@@ -1,19 +1,19 @@
 use alloy::primitives::{hex, U256};
-use dotenvy::from_path;
+use dotenvy::dotenv;
 use polyoxide_relay::{BuilderAccount, BuilderConfig, RelayClient, WalletType};
 use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load .env from the root polyoxide directory
-    from_path("/home/aidanb/Source/ABQT/polyoxide/.env").ok();
+    // Load .env from the root directory
+    dotenv().ok();
 
     // Hardcoded inputs for this example
     let relay_url = "https://relayer-v2.polymarket.com";
     let chain_id: u64 = 137;
     let condition_id_hex = "0x1171bfba0ad9386688133910593527fe77ce5406a7ac2c9a3552ab5471c1ac51";
     // outcome_index: 0 = NO, 1 = YES
-    let outcome_index: u32 = 0;
+    let outcome_index: u32 = 1;
     // index_set is a bitmask: 1 << outcome_index (1 for NO, 2 for YES, 3 for both)
     let index_set = U256::from(1u64 << outcome_index);
 
