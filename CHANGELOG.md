@@ -1,3 +1,9 @@
+## [0.8.0] - 2026-02-25
+
+### 🚀 Features
+
+- Migrate price and size fields from String to Decimal with `serde(with = "rust_decimal::serde::str")` for accurate serialization
+
 ## [0.7.1] - 2026-02-24
 
 ### 🐛 Bug Fixes
