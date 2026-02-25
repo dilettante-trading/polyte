@@ -49,3 +49,4 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 futures-util = { workspace = true }
 dotenvy = "0.15"
+rust_decimal_macros = "1.37"

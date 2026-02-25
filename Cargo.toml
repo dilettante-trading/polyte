@@ -39,7 +39,7 @@ hex = "0.4"
 tracing = "0.1"
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 futures-util = "0.3"
-rust_decimal = "1.37"
+rust_decimal = { version = "1.37", features = ["serde-with-str"] }
 
 [profile.release]
 opt-level = 3

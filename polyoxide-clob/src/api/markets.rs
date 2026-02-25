@@ -1,5 +1,6 @@
 use polyoxide_core::QueryBuilder;
 use reqwest::Client;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -167,8 +168,10 @@ pub struct MarketToken {
 /// Order book level (price and size)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderLevel {
-    pub price: String,
-    pub size: String,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub price: Decimal,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub size: Decimal,
 }
 
 /// Order book data

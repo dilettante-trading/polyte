@@ -2,15 +2,18 @@
 //!
 //! The market channel provides real-time order book and price updates.
 
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// Order summary in the order book
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderSummary {
     /// Price level
-    pub price: String,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub price: Decimal,
     /// Size at this price level
-    pub size: String,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub size: Decimal,
 }
 
 /// Book message - full order book snapshot
@@ -40,17 +43,21 @@ pub struct PriceChange {
     /// Asset ID (token ID)
     pub asset_id: String,
     /// Price level
-    pub price: String,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub price: Decimal,
     /// Size at this price level
-    pub size: String,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub size: Decimal,
     /// Order side (BUY or SELL)
     pub side: String,
     /// Order book hash
     pub hash: String,
     /// Best bid price
-    pub best_bid: Option<String>,
+    #[serde(default, with = "rust_decimal::serde::str_option")]
+    pub best_bid: Option<Decimal>,
     /// Best ask price
-    pub best_ask: Option<String>,
+    #[serde(default, with = "rust_decimal::serde::str_option")]
+    pub best_ask: Option<Decimal>,
 }
 
 /// Price change message - incremental order book update
@@ -95,11 +102,13 @@ pub struct LastTradePriceMessage {
     /// Market condition ID
     pub market: String,
     /// Trade price
-    pub price: String,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub price: Decimal,
     /// Trade side (BUY or SELL)
     pub side: String,
     /// Trade size
-    pub size: String,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub size: Decimal,
     /// Fee rate
     pub fee_rate_bps: Option<String>,
     /// Timestamp in milliseconds (as string)

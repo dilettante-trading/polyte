@@ -1,4 +1,5 @@
 use rand::Rng;
+use rust_decimal::prelude::ToPrimitive;
 
 use crate::{
     api::markets::OrderLevel,
@@ -96,8 +97,8 @@ pub fn calculate_market_price(levels: &[OrderLevel], amount: f64, side: OrderSid
     let mut sum = 0.0;
 
     for level in levels {
-        let p = level.price.parse::<f64>().ok()?;
-        let s = level.size.parse::<f64>().ok()?;
+        let p = level.price.to_f64()?;
+        let s = level.size.to_f64()?;
 
         match side {
             OrderSide::Buy => {
@@ -113,7 +114,7 @@ pub fn calculate_market_price(levels: &[OrderLevel], amount: f64, side: OrderSid
         }
     }
 
-    levels.last().and_then(|l| l.price.parse::<f64>().ok())
+    levels.last().and_then(|l| l.price.to_f64())
 }
 
 /// Convert f64 to raw integer string by multiplying by 10^decimals
@@ -207,10 +208,11 @@ mod tests {
 
     #[test]
     fn test_calculate_market_price_buy_simple() {
+        use rust_decimal_macros::dec;
         // Should find match at 0.50
         let levels = vec![OrderLevel {
-            price: "0.50".to_string(),
-            size: "1000".to_string(),
+            price: dec!(0.50),
+            size: dec!(1000),
         }];
         let price = calculate_market_price(&levels, 100.0, OrderSide::Buy);
         assert_eq!(price, Some(0.50));
