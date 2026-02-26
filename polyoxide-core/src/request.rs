@@ -98,8 +98,6 @@ impl<T: DeserializeOwned, E: RequestError> Request<T, E> {
             .await
             .map_err(|e| E::from(ApiError::from(e)))?;
 
-        tracing::debug!("Response body: {}", text);
-
         // Deserialize and provide better error context
         serde_json::from_str(&text).map_err(|e| {
             tracing::error!("Deserialization failed: {}", e);
@@ -120,8 +118,6 @@ impl<T: DeserializeOwned, E: RequestError> Request<T, E> {
         if !self.query.is_empty() {
             request = request.query(&self.query);
         }
-
-        tracing::debug!("Sending request to: {:?}", request);
 
         let response = request
             .send()

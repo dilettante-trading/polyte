@@ -122,10 +122,7 @@ impl<T: DeserializeOwned> Request<T> {
     pub async fn send(self) -> Result<T, ClobError> {
         let response = self.send_raw().await?;
 
-        // Get text for debugging
         let text = response.text().await?;
-
-        tracing::debug!("Response body: {}", text);
 
         // Deserialize and provide better error context
         serde_json::from_str(&text).map_err(|e| {
@@ -166,8 +163,6 @@ impl<T: DeserializeOwned> Request<T> {
 
         // Add authentication headers
         request = self.add_auth_headers(request).await?;
-
-        tracing::debug!("Sending {} request to: {:?}", self.method, request);
 
         // Execute request
         let response = request.send().await?;

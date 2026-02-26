@@ -144,7 +144,7 @@ impl WebSocket {
 
         // Skip messages without event_type (heartbeats, acks, etc.)
         if !text.contains("event_type") {
-            tracing::debug!("Skipping non-event message: {}", text);
+            tracing::trace!("Skipping non-event message: {}", text);
             return Ok(None);
         }
 
@@ -379,7 +379,7 @@ impl WebSocketWithPing {
 
         // Skip messages without event_type (heartbeats, acks, etc.)
         if !text.contains("event_type") {
-            tracing::debug!("Skipping non-event message: {}", text);
+            tracing::trace!("Skipping non-event message: {}", text);
             return Ok(None);
         }
 

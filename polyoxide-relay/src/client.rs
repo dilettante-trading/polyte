@@ -758,10 +758,6 @@ impl RelayClient {
         let url = self.base_url.join(endpoint)?;
         let body_str = serde_json::to_string(body)?;
 
-        eprintln!("DEBUG POST {} path={}", url, url.path());
-        eprintln!("DEBUG body: {}", body_str);
-        tracing::debug!("POST {} with body: {}", url, body_str);
-
         let mut headers = if let Some(account) = &self.account {
             if let Some(config) = account.config() {
                 config
@@ -805,9 +801,7 @@ impl RelayClient {
             return Err(RelayError::Api(format!("Request failed: {}", text)));
         }
 
-        // Get raw response text before attempting to decode
         let response_text = resp.text().await?;
-        tracing::debug!("Raw response body from {}: {}", endpoint, response_text);
 
         // Try to deserialize
         serde_json::from_str(&response_text).map_err(|e| {
