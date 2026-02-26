@@ -1,3 +1,11 @@
+## [0.8.1] - 2026-02-26
+
+### 🚜 Refactor
+
+- *(core)* Remove verbose request/response body logging from HTTP clients
+- *(clob)* Remove verbose request/response body logging from HTTP clients
+- *(relay)* Remove verbose request/response body logging and leftover `eprintln!` debug statements
+
 ## [0.8.0] - 2026-02-25
 
 ### 🚀 Features
