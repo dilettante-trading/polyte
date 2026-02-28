@@ -1,3 +1,18 @@
+## [0.9.1] - 2026-02-28
+
+### ⚙️ Miscellaneous Tasks
+
+- Prune unused deps, tokio/alloy features, and fix TLS duplication
+- Apply rustfmt formatting across workspace
+
+### 📚 Documentation
+
+- Add testing conventions and module organization to CLAUDE.md
+
+### 🔧 CI
+
+- Replace rust-cache with sccache for shared compilation caching
+
 ## [0.9.0] - 2026-02-28
 
 ### 🚀 Features
