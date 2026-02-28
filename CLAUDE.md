@@ -4,78 +4,80 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Polyoxide is a Rust SDK toolkit for Polymarket APIs. It provides library crates for interacting with Polymarket's trading and market data services, plus a standalone CLI.
+Polyoxide is a Rust SDK toolkit for Polymarket APIs. It provides library crates for CLOB trading, market data (Gamma), user data, gasless relay transactions, and a standalone CLI. Hard fork of [polyte](https://github.com/roushou/polyte).
 
-## Build Commands
+## Build & Development Commands
 
 ```bash
-# Build all crates
-cargo build
+# Build entire workspace
+cargo build --all-features --workspace
 
-# Build specific crate
+# Build a single crate
 cargo build -p polyoxide-clob
 
-# Run tests
-cargo test
+# Run all tests
+cargo test --all-features --workspace
 
-# Run tests for specific crate
-cargo test -p polyoxide-gamma
+# Test a single crate
+cargo test -p polyoxide-clob --all-features
 
-# Run single test
-cargo test test_name
+# Run a single test by name
+cargo test -p polyoxide-clob --all-features -- test_name
 
-# Run CLI
-cargo run -p polyoxide-cli -- <command>
+# Lint (must pass with zero warnings)
+cargo clippy --all-targets --all-features -- -D warnings
 
-# Run example
-cargo run -p polyoxide-gamma --example retrieve_markets
+# Format check
+cargo fmt --all -- --check
 
-# Check formatting
-cargo fmt --check
-
-# Lint
-cargo clippy
+# Format fix
+cargo fmt --all
 ```
 
-## Architecture
+CI runs format, clippy, test, and build in that order. Clippy uses `-D warnings` (all warnings are errors).
 
-### Workspace Structure
+## Workspace Architecture
 
-The workspace contains 7 crates organized in layers:
+Seven crates with this dependency graph:
 
-**Unified Client** (`polyoxide/`): Re-exports all API clients through a single `Polymarket` struct with optional features (`clob`, `gamma`, `data`, `ws`). Entry point is `Polymarket::builder(account).chain(...).build()`.
+```
+polyoxide-core          (shared: auth, HTTP client, errors, macros)
+├── polyoxide-relay     (gasless transactions via Polygon relayer)
+├── polyoxide-gamma     (read-only market data API)
+├── polyoxide-data      (read-only user positions/trades API)
+└── polyoxide-clob      (order book trading, depends on core + gamma)
+    └── polyoxide        (unified client re-exporting clob/gamma/data, feature-gated)
+        └── polyoxide-cli (CLI tool using clap)
+```
 
-**API Clients**:
-- `polyoxide-clob/`: Trading API (CLOB) - order placement, signing (EIP-712), account management, WebSocket streaming
-- `polyoxide-gamma/`: Market data API - markets, events, series, tags, sports
-- `polyoxide-data/`: Data API - positions, trades, holders, open interest, volume, builder leaderboard
-- `polyoxide-relay/`: Relayer API - gasless redemption, uses `alloy` for Ethereum interactions
+**polyoxide** (the unified crate) uses feature flags: `clob`, `gamma`, `data`, `ws` (WebSocket), `full` (all). Default = clob + gamma + data.
 
-**Shared**:
-- `polyoxide-core/`: HTTP client building, error types, request utilities shared across clients
-- `polyoxide-cli/`: CLI binary using clap, commands for gamma/data/ws
+## Key Patterns
 
-### Key Patterns
+**Builder pattern** — All clients use builders: `Clob::builder(...)`, `Gamma::builder()`, `DataApi::builder()`, `Polymarket::builder(account)`.
 
-**Builder Pattern**: All clients use builders (`ClobBuilder`, `Gamma::builder()`, `DataApiBuilder`) for configuration.
+**API namespaces** — Clients organize endpoints into namespaces: `clob.markets()`, `clob.orders()`, `gamma.markets().list().open(true).send().await?`, `data.user(addr).list_positions().send().await?`.
 
-**Account/Credentials**: `Account` holds wallet (private key) and API credentials. Load via:
-- `Account::from_env()` - reads `POLYMARKET_PRIVATE_KEY`, `POLYMARKET_API_KEY`, `POLYMARKET_API_SECRET`, `POLYMARKET_API_PASSPHRASE`
-- `Account::from_file(path)` - JSON config file
-- Direct construction with `Credentials` struct
+**Request builder fluency** — Query parameters are chained with builder methods before `.send().await?`.
 
-**Request Builders**: API methods return request builders with chainable methods (`.limit()`, `.open()`, etc.) finalized with `.send().await`.
+**Two auth layers** — L1 uses EIP-712 signing (via `alloy`) for on-chain orders; L2 uses HMAC-SHA256 for API credentials. Both are managed through the `Account` type in `polyoxide-clob/src/account/`.
 
-**Chain Configuration**: `Chain::PolygonMainnet` or `Chain::PolygonMumbai` determines contract addresses and API endpoints.
+**Error hierarchy** — `ApiError` in core, wrapped by crate-specific errors (`ClobError`, `GammaError`, `DataApiError`, `RelayError`). The `impl_api_error_conversions!` macro in core wires up `From` conversions.
 
-### polyoxide-clob Internals
+**Decimal precision** — Price/size fields use `rust_decimal::Decimal` with `serde(with = "rust_decimal::serde::str")` for string serialization.
 
-- `account/`: Wallet (alloy LocalSigner), Signer trait, Credentials
-- `core/`: Chain config, EIP-712 typed data for order signing
-- `api/`: REST endpoints (orders, markets, account)
-- `ws/`: WebSocket client with market (public) and user (authenticated) channels
-- `request.rs`: Authenticated request building with HMAC signing
+## Environment Variables
 
-### polyoxide-relay
+For authenticated operations (CLOB trading, user data):
+```
+POLYMARKET_PRIVATE_KEY        # Hex-encoded private key
+POLYMARKET_API_KEY            # L2 API key
+POLYMARKET_API_SECRET         # L2 API secret (base64)
+POLYMARKET_API_PASSPHRASE     # L2 API passphrase
+```
 
-Uses `alloy` crate for Ethereum/Polygon interactions. Provides gasless redemption via relayer v2 API with HMAC authentication headers.
+Relay operations additionally need `BUILDER_API_KEY`, `BUILDER_SECRET`, `BUILDER_PASS_PHRASE`.
+
+## Publishing Order
+
+Crates must be published in dependency order: core → relay → gamma → data → clob → polyoxide. The release workflow in `.github/workflows/release.yml` handles this automatically.
