@@ -1,5 +1,5 @@
 use polyoxide_core::{
-    HttpClient, HttpClientBuilder, RateLimiter, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS,
+    HttpClient, HttpClientBuilder, RateLimiter, RetryConfig, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS,
 };
 
 use crate::{
@@ -462,6 +462,7 @@ pub struct ClobBuilder {
     chain: Chain,
     account: Option<Account>,
     gamma: Option<Gamma>,
+    retry_config: Option<RetryConfig>,
 }
 
 impl ClobBuilder {
@@ -474,6 +475,7 @@ impl ClobBuilder {
             chain: Chain::PolygonMainnet,
             account: None,
             gamma: None,
+            retry_config: None,
         }
     }
 
@@ -513,13 +515,22 @@ impl ClobBuilder {
         self
     }
 
+    /// Set retry configuration for 429 responses
+    pub fn with_retry_config(mut self, config: RetryConfig) -> Self {
+        self.retry_config = Some(config);
+        self
+    }
+
     /// Build the CLOB client
     pub fn build(self) -> Result<Clob, ClobError> {
-        let http_client = HttpClientBuilder::new(&self.base_url)
+        let mut builder = HttpClientBuilder::new(&self.base_url)
             .timeout_ms(self.timeout_ms)
             .pool_size(self.pool_size)
-            .with_rate_limiter(RateLimiter::clob_default())
-            .build()?;
+            .with_rate_limiter(RateLimiter::clob_default());
+        if let Some(config) = self.retry_config {
+            builder = builder.with_retry_config(config);
+        }
+        let http_client = builder.build()?;
 
         let gamma = if let Some(gamma) = self.gamma {
             gamma
@@ -551,6 +562,19 @@ impl Default for ClobBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_builder_custom_retry_config() {
+        let config = RetryConfig {
+            max_retries: 5,
+            initial_backoff_ms: 1000,
+            max_backoff_ms: 30_000,
+        };
+        let builder = ClobBuilder::new().with_retry_config(config);
+        let config = builder.retry_config.unwrap();
+        assert_eq!(config.max_retries, 5);
+        assert_eq!(config.initial_backoff_ms, 1000);
+    }
 
     fn make_params(price: f64, size: f64) -> CreateOrderParams {
         CreateOrderParams {

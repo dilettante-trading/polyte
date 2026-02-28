@@ -1,5 +1,5 @@
 use polyoxide_core::{
-    HttpClient, HttpClientBuilder, RateLimiter, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS,
+    HttpClient, HttpClientBuilder, RateLimiter, RetryConfig, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS,
 };
 
 use crate::{
@@ -102,6 +102,7 @@ pub struct DataApiBuilder {
     base_url: String,
     timeout_ms: u64,
     pool_size: usize,
+    retry_config: Option<RetryConfig>,
 }
 
 impl DataApiBuilder {
@@ -110,6 +111,7 @@ impl DataApiBuilder {
             base_url: DEFAULT_BASE_URL.to_string(),
             timeout_ms: DEFAULT_TIMEOUT_MS,
             pool_size: DEFAULT_POOL_SIZE,
+            retry_config: None,
         }
     }
 
@@ -131,13 +133,22 @@ impl DataApiBuilder {
         self
     }
 
+    /// Set retry configuration for 429 responses
+    pub fn with_retry_config(mut self, config: RetryConfig) -> Self {
+        self.retry_config = Some(config);
+        self
+    }
+
     /// Build the Data API client
     pub fn build(self) -> Result<DataApi, DataApiError> {
-        let http_client = HttpClientBuilder::new(&self.base_url)
+        let mut builder = HttpClientBuilder::new(&self.base_url)
             .timeout_ms(self.timeout_ms)
             .pool_size(self.pool_size)
-            .with_rate_limiter(RateLimiter::data_default())
-            .build()?;
+            .with_rate_limiter(RateLimiter::data_default());
+        if let Some(config) = self.retry_config {
+            builder = builder.with_retry_config(config);
+        }
+        let http_client = builder.build()?;
 
         Ok(DataApi { http_client })
     }
@@ -158,5 +169,35 @@ impl Traded {
     /// Get total markets traded by the user
     pub async fn get(self) -> std::result::Result<UserTraded, DataApiError> {
         self.user_api.traded().await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_builder_default() {
+        let builder = DataApiBuilder::default();
+        assert_eq!(builder.base_url, DEFAULT_BASE_URL);
+    }
+
+    #[test]
+    fn test_builder_custom_retry_config() {
+        let config = RetryConfig {
+            max_retries: 5,
+            initial_backoff_ms: 1000,
+            max_backoff_ms: 30_000,
+        };
+        let builder = DataApiBuilder::new().with_retry_config(config);
+        let config = builder.retry_config.unwrap();
+        assert_eq!(config.max_retries, 5);
+        assert_eq!(config.initial_backoff_ms, 1000);
+    }
+
+    #[test]
+    fn test_builder_build_success() {
+        let data = DataApi::builder().build();
+        assert!(data.is_ok());
     }
 }

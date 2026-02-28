@@ -12,7 +12,7 @@ use alloy::providers::{Provider, ProviderBuilder};
 use alloy::rpc::types::TransactionRequest;
 use alloy::signers::Signer;
 use alloy::sol_types::{Eip712Domain, SolCall, SolStruct, SolValue};
-use polyoxide_core::{retry_after_header, HttpClient, HttpClientBuilder, RateLimiter};
+use polyoxide_core::{retry_after_header, HttpClient, HttpClientBuilder, RateLimiter, RetryConfig};
 use serde::Serialize;
 use std::time::{Duration, Instant};
 use url::Url;
@@ -920,6 +920,7 @@ pub struct RelayClientBuilder {
     chain_id: u64,
     account: Option<BuilderAccount>,
     wallet_type: WalletType,
+    retry_config: Option<RetryConfig>,
 }
 
 impl Default for RelayClientBuilder {
@@ -951,6 +952,7 @@ impl RelayClientBuilder {
             chain_id: 137,
             account: None,
             wallet_type: WalletType::default(),
+            retry_config: None,
         })
     }
 
@@ -978,6 +980,12 @@ impl RelayClientBuilder {
         self
     }
 
+    /// Set retry configuration for 429 responses
+    pub fn with_retry_config(mut self, config: RetryConfig) -> Self {
+        self.retry_config = Some(config);
+        self
+    }
+
     pub fn build(self) -> Result<RelayClient, RelayError> {
         let mut base_url = Url::parse(&self.base_url)?;
         if !base_url.path().ends_with('/') {
@@ -987,9 +995,12 @@ impl RelayClientBuilder {
         let contract_config = get_contract_config(self.chain_id)
             .ok_or_else(|| RelayError::Api(format!("Unsupported chain ID: {}", self.chain_id)))?;
 
-        let http_client = HttpClientBuilder::new(base_url.as_str())
-            .with_rate_limiter(RateLimiter::relay_default())
-            .build()?;
+        let mut builder = HttpClientBuilder::new(base_url.as_str())
+            .with_rate_limiter(RateLimiter::relay_default());
+        if let Some(config) = self.retry_config {
+            builder = builder.with_retry_config(config);
+        }
+        let http_client = builder.build()?;
 
         Ok(RelayClient {
             http_client,
@@ -1051,6 +1062,19 @@ mod tests {
     fn test_relay_client_builder_default() {
         let builder = RelayClientBuilder::default();
         assert_eq!(builder.chain_id, 137);
+    }
+
+    #[test]
+    fn test_builder_custom_retry_config() {
+        let config = RetryConfig {
+            max_retries: 5,
+            initial_backoff_ms: 1000,
+            max_backoff_ms: 30_000,
+        };
+        let builder = RelayClientBuilder::new().unwrap().with_retry_config(config);
+        let config = builder.retry_config.unwrap();
+        assert_eq!(config.max_retries, 5);
+        assert_eq!(config.initial_backoff_ms, 1000);
     }
 
     // ── Builder ──────────────────────────────────────────────────

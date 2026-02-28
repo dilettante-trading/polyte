@@ -1,5 +1,5 @@
 use polyoxide_core::{
-    HttpClient, HttpClientBuilder, RateLimiter, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS,
+    HttpClient, HttpClientBuilder, RateLimiter, RetryConfig, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS,
 };
 
 use crate::{
@@ -91,6 +91,7 @@ pub struct GammaBuilder {
     base_url: String,
     timeout_ms: u64,
     pool_size: usize,
+    retry_config: Option<RetryConfig>,
 }
 
 impl GammaBuilder {
@@ -99,6 +100,7 @@ impl GammaBuilder {
             base_url: DEFAULT_BASE_URL.to_string(),
             timeout_ms: DEFAULT_TIMEOUT_MS,
             pool_size: DEFAULT_POOL_SIZE,
+            retry_config: None,
         }
     }
 
@@ -120,13 +122,22 @@ impl GammaBuilder {
         self
     }
 
+    /// Set retry configuration for 429 responses
+    pub fn with_retry_config(mut self, config: RetryConfig) -> Self {
+        self.retry_config = Some(config);
+        self
+    }
+
     /// Build the Gamma client
     pub fn build(self) -> Result<Gamma, GammaError> {
-        let http_client = HttpClientBuilder::new(&self.base_url)
+        let mut builder = HttpClientBuilder::new(&self.base_url)
             .timeout_ms(self.timeout_ms)
             .pool_size(self.pool_size)
-            .with_rate_limiter(RateLimiter::gamma_default())
-            .build()?;
+            .with_rate_limiter(RateLimiter::gamma_default());
+        if let Some(config) = self.retry_config {
+            builder = builder.with_retry_config(config);
+        }
+        let http_client = builder.build()?;
 
         Ok(Gamma { http_client })
     }
@@ -166,6 +177,19 @@ mod tests {
     fn test_builder_custom_pool_size() {
         let builder = GammaBuilder::new().pool_size(20);
         assert_eq!(builder.pool_size, 20);
+    }
+
+    #[test]
+    fn test_builder_custom_retry_config() {
+        let config = RetryConfig {
+            max_retries: 5,
+            initial_backoff_ms: 1000,
+            max_backoff_ms: 30_000,
+        };
+        let builder = GammaBuilder::new().with_retry_config(config);
+        let config = builder.retry_config.unwrap();
+        assert_eq!(config.max_retries, 5);
+        assert_eq!(config.initial_backoff_ms, 1000);
     }
 
     #[test]
