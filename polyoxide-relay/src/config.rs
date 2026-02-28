@@ -38,11 +38,21 @@ pub fn get_contract_config(chain_id: u64) -> Option<ContractConfig> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct BuilderConfig {
     pub key: String,
     pub secret: String,
     pub passphrase: Option<String>,
+}
+
+impl std::fmt::Debug for BuilderConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BuilderConfig")
+            .field("key", &"[REDACTED]")
+            .field("secret", &"[REDACTED]")
+            .field("passphrase", &self.passphrase.as_ref().map(|_| "[REDACTED]"))
+            .finish()
+    }
 }
 
 impl BuilderConfig {
@@ -120,5 +130,38 @@ impl BuilderConfig {
         }
 
         Ok(headers)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_builder_config_debug_redacts_secrets() {
+        let config = BuilderConfig::new(
+            "my-api-key".to_string(),
+            "my-secret".to_string(),
+            Some("my-passphrase".to_string()),
+        );
+        let debug_output = format!("{:?}", config);
+
+        assert!(debug_output.contains("[REDACTED]"));
+        assert!(!debug_output.contains("my-api-key"), "Debug leaked API key: {}", debug_output);
+        assert!(!debug_output.contains("my-secret"), "Debug leaked secret: {}", debug_output);
+        assert!(
+            !debug_output.contains("my-passphrase"),
+            "Debug leaked passphrase: {}",
+            debug_output
+        );
+    }
+
+    #[test]
+    fn test_builder_config_debug_without_passphrase() {
+        let config = BuilderConfig::new("key".to_string(), "secret".to_string(), None);
+        let debug_output = format!("{:?}", config);
+
+        assert!(debug_output.contains("[REDACTED]"));
+        assert!(debug_output.contains("passphrase: None"));
     }
 }

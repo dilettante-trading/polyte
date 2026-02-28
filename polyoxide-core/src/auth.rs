@@ -34,9 +34,17 @@ pub enum Base64Format {
 /// HMAC signer for API authentication
 ///
 /// Supports both base64-encoded and raw string secrets, with configurable output format.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Signer {
     secret: Vec<u8>,
+}
+
+impl std::fmt::Debug for Signer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Signer")
+            .field("secret", &"[REDACTED]")
+            .finish()
+    }
 }
 
 impl Signer {
@@ -154,5 +162,28 @@ mod tests {
         let msg_with_body =
             Signer::create_message(1234567890, "POST", "/api/test", Some(r#"{"key":"value"}"#));
         assert_eq!(msg_with_body, r#"1234567890POST/api/test{"key":"value"}"#);
+    }
+
+    #[test]
+    fn test_signer_debug_redacts_secret() {
+        // "c2VjcmV0" is "secret" in base64, decoded bytes are [115, 101, 99, 114, 101, 116]
+        let signer = Signer::new("c2VjcmV0").unwrap();
+        let debug_output = format!("{:?}", signer);
+        assert!(
+            debug_output.contains("[REDACTED]"),
+            "Debug output should contain [REDACTED]: {}",
+            debug_output
+        );
+        // Should not contain the base64 secret or the decoded bytes
+        assert!(
+            !debug_output.contains("c2VjcmV0"),
+            "Debug output should not contain the base64 secret: {}",
+            debug_output
+        );
+        assert!(
+            !debug_output.contains("115, 101"),
+            "Debug output should not contain decoded secret bytes: {}",
+            debug_output
+        );
     }
 }
