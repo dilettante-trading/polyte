@@ -977,4 +977,257 @@ mod tests {
         let builder = RelayClientBuilder::default();
         assert_eq!(builder.chain_id, 137);
     }
+
+    // ── Builder ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_builder_unsupported_chain() {
+        let result = RelayClient::builder().unwrap().chain_id(999).build();
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("Unsupported chain ID"),
+            "Expected unsupported chain error, got: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn test_builder_with_wallet_type() {
+        let client = RelayClient::builder()
+            .unwrap()
+            .wallet_type(WalletType::Proxy)
+            .build()
+            .unwrap();
+        assert_eq!(client.wallet_type, WalletType::Proxy);
+    }
+
+    #[test]
+    fn test_builder_no_account_address_is_none() {
+        let client = RelayClient::builder().unwrap().build().unwrap();
+        assert!(client.address().is_none());
+    }
+
+    // ── address derivation (CREATE2) ────────────────────────────
+
+    // Well-known test key: anvil/hardhat default #0
+    const TEST_KEY: &str =
+        "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+
+    fn test_client_with_account() -> RelayClient {
+        let account = crate::BuilderAccount::new(TEST_KEY, None).unwrap();
+        RelayClient::builder()
+            .unwrap()
+            .with_account(account)
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    fn test_derive_safe_address_deterministic() {
+        let client = test_client_with_account();
+        let addr1 = client.get_expected_safe().unwrap();
+        let addr2 = client.get_expected_safe().unwrap();
+        assert_eq!(addr1, addr2);
+    }
+
+    #[test]
+    fn test_derive_safe_address_nonzero() {
+        let client = test_client_with_account();
+        let addr = client.get_expected_safe().unwrap();
+        assert_ne!(addr, Address::ZERO);
+    }
+
+    #[test]
+    fn test_derive_proxy_wallet_deterministic() {
+        let client = test_client_with_account();
+        let addr1 = client.get_expected_proxy_wallet().unwrap();
+        let addr2 = client.get_expected_proxy_wallet().unwrap();
+        assert_eq!(addr1, addr2);
+    }
+
+    #[test]
+    fn test_safe_and_proxy_addresses_differ() {
+        let client = test_client_with_account();
+        let safe = client.get_expected_safe().unwrap();
+        let proxy = client.get_expected_proxy_wallet().unwrap();
+        assert_ne!(safe, proxy);
+    }
+
+    #[test]
+    fn test_derive_proxy_wallet_no_account() {
+        let client = RelayClient::builder().unwrap().build().unwrap();
+        let result = client.get_expected_proxy_wallet();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_derive_proxy_wallet_amoy_unsupported() {
+        let account = crate::BuilderAccount::new(TEST_KEY, None).unwrap();
+        let client = RelayClient::builder()
+            .unwrap()
+            .chain_id(80002)
+            .with_account(account)
+            .build()
+            .unwrap();
+        // Amoy has no proxy_factory
+        let result = client.get_expected_proxy_wallet();
+        assert!(result.is_err());
+    }
+
+    // ── signature packing ───────────────────────────────────────
+
+    #[test]
+    fn test_split_and_pack_sig_safe_format() {
+        let client = test_client_with_account();
+        // Create a dummy signature
+        let sig = alloy::primitives::Signature::from_scalars_and_parity(
+            alloy::primitives::B256::from([1u8; 32]),
+            alloy::primitives::B256::from([2u8; 32]),
+            false, // v = 0 → Safe adjusts to 31
+        );
+        let packed = client.split_and_pack_sig_safe(sig);
+        assert!(packed.starts_with("0x"));
+        // 32 bytes r + 32 bytes s + 1 byte v = 65 bytes = 130 hex chars + "0x" prefix
+        assert_eq!(packed.len(), 132);
+        // v should be 31 (0x1f) when v() is false
+        assert!(packed.ends_with("1f"), "expected v=31(0x1f), got: {packed}");
+    }
+
+    #[test]
+    fn test_split_and_pack_sig_safe_v_true() {
+        let client = test_client_with_account();
+        let sig = alloy::primitives::Signature::from_scalars_and_parity(
+            alloy::primitives::B256::from([0xAA; 32]),
+            alloy::primitives::B256::from([0xBB; 32]),
+            true, // v = 1 → Safe adjusts to 32
+        );
+        let packed = client.split_and_pack_sig_safe(sig);
+        // v should be 32 (0x20) when v() is true
+        assert!(packed.ends_with("20"), "expected v=32(0x20), got: {packed}");
+    }
+
+    #[test]
+    fn test_split_and_pack_sig_proxy_format() {
+        let client = test_client_with_account();
+        let sig = alloy::primitives::Signature::from_scalars_and_parity(
+            alloy::primitives::B256::from([1u8; 32]),
+            alloy::primitives::B256::from([2u8; 32]),
+            false, // v = 0 → Proxy uses 27
+        );
+        let packed = client.split_and_pack_sig_proxy(sig);
+        assert!(packed.starts_with("0x"));
+        assert_eq!(packed.len(), 132);
+        // v should be 27 (0x1b) when v() is false
+        assert!(packed.ends_with("1b"), "expected v=27(0x1b), got: {packed}");
+    }
+
+    #[test]
+    fn test_split_and_pack_sig_proxy_v_true() {
+        let client = test_client_with_account();
+        let sig = alloy::primitives::Signature::from_scalars_and_parity(
+            alloy::primitives::B256::from([0xAA; 32]),
+            alloy::primitives::B256::from([0xBB; 32]),
+            true, // v = 1 → Proxy uses 28
+        );
+        let packed = client.split_and_pack_sig_proxy(sig);
+        // v should be 28 (0x1c) when v() is true
+        assert!(packed.ends_with("1c"), "expected v=28(0x1c), got: {packed}");
+    }
+
+    // ── encode_proxy_transaction_data ───────────────────────────
+
+    #[test]
+    fn test_encode_proxy_transaction_data_single() {
+        let client = test_client_with_account();
+        let txns = vec![SafeTransaction {
+            to: Address::ZERO,
+            operation: 0,
+            data: alloy::primitives::Bytes::from(vec![0xde, 0xad]),
+            value: U256::ZERO,
+        }];
+        let encoded = client.encode_proxy_transaction_data(&txns);
+        // Should produce valid ABI-encoded calldata with a 4-byte function selector
+        assert!(encoded.len() >= 4, "encoded data too short: {} bytes", encoded.len());
+    }
+
+    #[test]
+    fn test_encode_proxy_transaction_data_multiple() {
+        let client = test_client_with_account();
+        let txns = vec![
+            SafeTransaction {
+                to: Address::ZERO,
+                operation: 0,
+                data: alloy::primitives::Bytes::from(vec![0x01]),
+                value: U256::ZERO,
+            },
+            SafeTransaction {
+                to: Address::ZERO,
+                operation: 0,
+                data: alloy::primitives::Bytes::from(vec![0x02]),
+                value: U256::from(100),
+            },
+        ];
+        let encoded = client.encode_proxy_transaction_data(&txns);
+        assert!(encoded.len() >= 4);
+        // Multiple transactions should produce longer data than a single one
+        let single = client.encode_proxy_transaction_data(&txns[..1]);
+        assert!(encoded.len() > single.len());
+    }
+
+    #[test]
+    fn test_encode_proxy_transaction_data_empty() {
+        let client = test_client_with_account();
+        let encoded = client.encode_proxy_transaction_data(&[]);
+        // Should still produce a valid ABI encoding with empty array
+        assert!(encoded.len() >= 4);
+    }
+
+    // ── create_safe_multisend_transaction ────────────────────────
+
+    #[test]
+    fn test_multisend_single_returns_same() {
+        let client = test_client_with_account();
+        let tx = SafeTransaction {
+            to: Address::from([0x42; 20]),
+            operation: 0,
+            data: alloy::primitives::Bytes::from(vec![0xAB]),
+            value: U256::from(99),
+        };
+        let result = client.create_safe_multisend_transaction(std::slice::from_ref(&tx));
+        assert_eq!(result.to, tx.to);
+        assert_eq!(result.value, tx.value);
+        assert_eq!(result.data, tx.data);
+        assert_eq!(result.operation, tx.operation);
+    }
+
+    #[test]
+    fn test_multisend_multiple_uses_delegate_call() {
+        let client = test_client_with_account();
+        let txns = vec![
+            SafeTransaction {
+                to: Address::from([0x01; 20]),
+                operation: 0,
+                data: alloy::primitives::Bytes::from(vec![0x01]),
+                value: U256::ZERO,
+            },
+            SafeTransaction {
+                to: Address::from([0x02; 20]),
+                operation: 0,
+                data: alloy::primitives::Bytes::from(vec![0x02]),
+                value: U256::ZERO,
+            },
+        ];
+        let result = client.create_safe_multisend_transaction(&txns);
+        // Should be a DelegateCall (operation = 1) to the multisend address
+        assert_eq!(result.operation, 1);
+        assert_eq!(result.to, client.contract_config.safe_multisend);
+        assert_eq!(result.value, U256::ZERO);
+        // Data should start with multiSend selector: 8d80ff0a
+        let data_hex = hex::encode(&result.data);
+        assert!(
+            data_hex.starts_with("8d80ff0a"),
+            "Expected multiSend selector, got: {}",
+            &data_hex[..8.min(data_hex.len())]
+        );
+    }
 }
