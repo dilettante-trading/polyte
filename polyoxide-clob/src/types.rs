@@ -16,6 +16,16 @@ pub enum OrderSide {
     Sell,
 }
 
+impl OrderSide {
+    /// Returns the uppercase string representation ("BUY" / "SELL") for API queries.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Buy => "BUY",
+            Self::Sell => "SELL",
+        }
+    }
+}
+
 impl Serialize for OrderSide {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

@@ -68,7 +68,7 @@ impl Markets {
             self.chain_id,
         )
         .query("token_id", token_id.into())
-        .query("side", side.to_string())
+        .query("side", side.as_str())
     }
 
     /// Get midpoint price for a token
