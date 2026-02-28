@@ -304,4 +304,222 @@ mod tests {
         assert_eq!(json["signatureType"], 0);
         assert_eq!(json["nonce"], "789");
     }
+
+    #[test]
+    fn order_side_serde_roundtrip() {
+        let buy: OrderSide = serde_json::from_str("\"BUY\"").unwrap();
+        let sell: OrderSide = serde_json::from_str("\"SELL\"").unwrap();
+        assert_eq!(buy, OrderSide::Buy);
+        assert_eq!(sell, OrderSide::Sell);
+
+        assert_eq!(serde_json::to_string(&OrderSide::Buy).unwrap(), "\"BUY\"");
+        assert_eq!(serde_json::to_string(&OrderSide::Sell).unwrap(), "\"SELL\"");
+    }
+
+    #[test]
+    fn order_side_display_is_numeric() {
+        // Display uses 0/1 for EIP-712 encoding
+        assert_eq!(OrderSide::Buy.to_string(), "0");
+        assert_eq!(OrderSide::Sell.to_string(), "1");
+    }
+
+    #[test]
+    fn order_side_rejects_lowercase() {
+        let result = serde_json::from_str::<OrderSide>("\"buy\"");
+        assert!(result.is_err(), "Should reject lowercase order side");
+    }
+
+    #[test]
+    fn order_kind_serde_roundtrip() {
+        for (variant, expected) in [
+            (OrderKind::Gtc, "GTC"),
+            (OrderKind::Fok, "FOK"),
+            (OrderKind::Gtd, "GTD"),
+            (OrderKind::Fak, "FAK"),
+        ] {
+            let serialized = serde_json::to_string(&variant).unwrap();
+            assert_eq!(serialized, format!("\"{}\"", expected));
+
+            let deserialized: OrderKind = serde_json::from_str(&serialized).unwrap();
+            assert_eq!(deserialized, variant);
+        }
+    }
+
+    #[test]
+    fn order_kind_display() {
+        assert_eq!(OrderKind::Gtc.to_string(), "GTC");
+        assert_eq!(OrderKind::Fok.to_string(), "FOK");
+        assert_eq!(OrderKind::Gtd.to_string(), "GTD");
+        assert_eq!(OrderKind::Fak.to_string(), "FAK");
+    }
+
+    #[test]
+    fn signature_type_serde_as_u8() {
+        assert_eq!(serde_json::to_string(&SignatureType::Eoa).unwrap(), "0");
+        assert_eq!(
+            serde_json::to_string(&SignatureType::PolyProxy).unwrap(),
+            "1"
+        );
+        assert_eq!(
+            serde_json::to_string(&SignatureType::PolyGnosisSafe).unwrap(),
+            "2"
+        );
+
+        let eoa: SignatureType = serde_json::from_str("0").unwrap();
+        assert_eq!(eoa, SignatureType::Eoa);
+        let proxy: SignatureType = serde_json::from_str("1").unwrap();
+        assert_eq!(proxy, SignatureType::PolyProxy);
+        let gnosis: SignatureType = serde_json::from_str("2").unwrap();
+        assert_eq!(gnosis, SignatureType::PolyGnosisSafe);
+    }
+
+    #[test]
+    fn signature_type_rejects_invalid_u8() {
+        let result = serde_json::from_str::<SignatureType>("3");
+        assert!(result.is_err(), "Should reject invalid signature type 3");
+
+        let result = serde_json::from_str::<SignatureType>("255");
+        assert!(result.is_err(), "Should reject invalid signature type 255");
+    }
+
+    #[test]
+    fn signature_type_display() {
+        assert_eq!(SignatureType::Eoa.to_string(), "eoa");
+        assert_eq!(SignatureType::PolyProxy.to_string(), "poly-proxy");
+        assert_eq!(
+            SignatureType::PolyGnosisSafe.to_string(),
+            "poly-gnosis-safe"
+        );
+    }
+
+    #[test]
+    fn signature_type_default_is_eoa() {
+        assert_eq!(SignatureType::default(), SignatureType::Eoa);
+    }
+
+    #[test]
+    fn signature_type_is_proxy() {
+        assert!(!SignatureType::Eoa.is_proxy());
+        assert!(SignatureType::PolyProxy.is_proxy());
+        assert!(SignatureType::PolyGnosisSafe.is_proxy());
+    }
+
+    #[test]
+    fn tick_size_from_str() {
+        assert_eq!(TickSize::try_from("0.1").unwrap(), TickSize::Tenth);
+        assert_eq!(TickSize::try_from("0.01").unwrap(), TickSize::Hundredth);
+        assert_eq!(TickSize::try_from("0.001").unwrap(), TickSize::Thousandth);
+        assert_eq!(
+            TickSize::try_from("0.0001").unwrap(),
+            TickSize::TenThousandth
+        );
+    }
+
+    #[test]
+    fn tick_size_from_str_rejects_invalid() {
+        assert!(TickSize::try_from("0.5").is_err());
+        assert!(TickSize::try_from("1.0").is_err());
+        assert!(TickSize::try_from("abc").is_err());
+        assert!(TickSize::try_from("0.00001").is_err());
+    }
+
+    #[test]
+    fn tick_size_from_f64() {
+        assert_eq!(TickSize::try_from(0.1).unwrap(), TickSize::Tenth);
+        assert_eq!(TickSize::try_from(0.01).unwrap(), TickSize::Hundredth);
+        assert_eq!(TickSize::try_from(0.001).unwrap(), TickSize::Thousandth);
+        assert_eq!(TickSize::try_from(0.0001).unwrap(), TickSize::TenThousandth);
+    }
+
+    #[test]
+    fn tick_size_from_f64_rejects_invalid() {
+        assert!(TickSize::try_from(0.5).is_err());
+        assert!(TickSize::try_from(0.0).is_err());
+        assert!(TickSize::try_from(1.0).is_err());
+    }
+
+    #[test]
+    fn tick_size_as_f64() {
+        assert!((TickSize::Tenth.as_f64() - 0.1).abs() < f64::EPSILON);
+        assert!((TickSize::Hundredth.as_f64() - 0.01).abs() < f64::EPSILON);
+        assert!((TickSize::Thousandth.as_f64() - 0.001).abs() < f64::EPSILON);
+        assert!((TickSize::TenThousandth.as_f64() - 0.0001).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn tick_size_decimals() {
+        assert_eq!(TickSize::Tenth.decimals(), 1);
+        assert_eq!(TickSize::Hundredth.decimals(), 2);
+        assert_eq!(TickSize::Thousandth.decimals(), 3);
+        assert_eq!(TickSize::TenThousandth.decimals(), 4);
+    }
+
+    #[test]
+    fn tick_size_from_str_trait() {
+        let ts: TickSize = "0.01".parse().unwrap();
+        assert_eq!(ts, TickSize::Hundredth);
+    }
+
+    #[test]
+    fn parse_tick_size_error_display() {
+        let err = TickSize::try_from("bad").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("bad"), "Error should contain invalid value: {}", msg);
+        assert!(
+            msg.contains("0.1"),
+            "Error should list valid values: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn order_neg_risk_skipped_in_serialization() {
+        let order = Order {
+            salt: "1".to_string(),
+            maker: Address::ZERO,
+            signer: Address::ZERO,
+            taker: Address::ZERO,
+            token_id: "1".to_string(),
+            maker_amount: "1".to_string(),
+            taker_amount: "1".to_string(),
+            expiration: "0".to_string(),
+            nonce: "0".to_string(),
+            fee_rate_bps: "0".to_string(),
+            side: OrderSide::Buy,
+            signature_type: SignatureType::Eoa,
+            neg_risk: true,
+        };
+        let json = serde_json::to_value(&order).unwrap();
+        assert!(
+            json.get("neg_risk").is_none() && json.get("negRisk").is_none(),
+            "neg_risk should be skipped in serialization: {}",
+            json
+        );
+    }
+
+    #[test]
+    fn salt_serialized_as_number() {
+        let order = Order {
+            salt: "12345678901234567890".to_string(),
+            maker: Address::ZERO,
+            signer: Address::ZERO,
+            taker: Address::ZERO,
+            token_id: "1".to_string(),
+            maker_amount: "1".to_string(),
+            taker_amount: "1".to_string(),
+            expiration: "0".to_string(),
+            nonce: "0".to_string(),
+            fee_rate_bps: "0".to_string(),
+            side: OrderSide::Buy,
+            signature_type: SignatureType::Eoa,
+            neg_risk: false,
+        };
+        let json = serde_json::to_value(&order).unwrap();
+        // Salt should be serialized as a number, not a string
+        assert!(
+            json["salt"].is_number(),
+            "Salt should be a number: {:?}",
+            json["salt"]
+        );
+    }
 }

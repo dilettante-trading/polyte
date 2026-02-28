@@ -65,3 +65,106 @@ impl fmt::Debug for ApiCredentials {
             .finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn api_credentials_new() {
+        let creds = ApiCredentials::new("key123", "secret456", "pass789");
+        assert_eq!(creds.api_key, "key123");
+        assert_eq!(creds.secret, "secret456");
+        assert_eq!(creds.passphrase, "pass789");
+    }
+
+    #[test]
+    fn api_credentials_new_accepts_string() {
+        let creds = ApiCredentials::new(
+            String::from("key"),
+            String::from("secret"),
+            String::from("pass"),
+        );
+        assert_eq!(creds.api_key, "key");
+    }
+
+    #[test]
+    fn debug_redacts_all_fields() {
+        let creds = ApiCredentials::new(
+            "super-secret-key",
+            "ultra-secret-secret",
+            "mega-secret-passphrase",
+        );
+        let debug = format!("{:?}", creds);
+
+        assert!(
+            !debug.contains("super-secret-key"),
+            "Debug must not leak api_key: {}",
+            debug
+        );
+        assert!(
+            !debug.contains("ultra-secret-secret"),
+            "Debug must not leak secret: {}",
+            debug
+        );
+        assert!(
+            !debug.contains("mega-secret-passphrase"),
+            "Debug must not leak passphrase: {}",
+            debug
+        );
+        assert!(
+            debug.contains("<redacted>"),
+            "Debug should show <redacted>: {}",
+            debug
+        );
+    }
+
+    #[test]
+    fn serialize_uses_api_key_rename() {
+        let creds = ApiCredentials::new("my_key", "my_secret", "my_pass");
+        let json = serde_json::to_value(&creds).unwrap();
+
+        // Should use "apiKey" not "api_key"
+        assert!(
+            json.get("apiKey").is_some(),
+            "Should serialize api_key as apiKey: {}",
+            json
+        );
+        assert!(
+            json.get("api_key").is_none(),
+            "Should not have api_key field: {}",
+            json
+        );
+        assert_eq!(json["apiKey"], "my_key");
+        assert_eq!(json["secret"], "my_secret");
+        assert_eq!(json["passphrase"], "my_pass");
+    }
+
+    #[test]
+    fn deserialize_with_api_key_rename() {
+        let json = r#"{"apiKey": "k", "secret": "s", "passphrase": "p"}"#;
+        let creds: ApiCredentials = serde_json::from_str(json).unwrap();
+        assert_eq!(creds.api_key, "k");
+        assert_eq!(creds.secret, "s");
+        assert_eq!(creds.passphrase, "p");
+    }
+
+    #[test]
+    fn serde_roundtrip() {
+        let original = ApiCredentials::new("key", "secret", "pass");
+        let json = serde_json::to_string(&original).unwrap();
+        let deserialized: ApiCredentials = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.api_key, original.api_key);
+        assert_eq!(deserialized.secret, original.secret);
+        assert_eq!(deserialized.passphrase, original.passphrase);
+    }
+
+    #[test]
+    fn clone_produces_independent_copy() {
+        let original = ApiCredentials::new("key", "secret", "pass");
+        let cloned = original.clone();
+        assert_eq!(cloned.api_key, original.api_key);
+        assert_eq!(cloned.secret, original.secret);
+        assert_eq!(cloned.passphrase, original.passphrase);
+    }
+}
