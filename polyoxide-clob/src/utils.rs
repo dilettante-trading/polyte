@@ -254,8 +254,9 @@ mod tests {
     fn test_generate_salt_large_range() {
         // Salt should be a valid u128 string (can be very large)
         let salt = generate_salt();
-        let parsed: u128 = salt.parse().expect("Salt should parse as u128");
-        // Just verify it's a valid number — randomness means we can't predict it
-        assert!(parsed <= u128::MAX);
+        let _parsed: u128 = salt.parse().expect("Salt should parse as u128");
+        // Two random salts should (almost certainly) differ
+        let salt2 = generate_salt();
+        assert_ne!(salt, salt2, "Two random salts should differ");
     }
 }
