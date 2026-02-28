@@ -942,4 +942,39 @@ mod tests {
         let result = client.ping().await;
         assert!(result.is_ok(), "ping failed: {:?}", result.err());
     }
+
+    #[test]
+    fn test_hex_constants_are_valid() {
+        hex::decode(SAFE_INIT_CODE_HASH).expect("SAFE_INIT_CODE_HASH should be valid hex");
+        hex::decode(PROXY_INIT_CODE_HASH).expect("PROXY_INIT_CODE_HASH should be valid hex");
+    }
+
+    #[test]
+    fn test_contract_config_polygon_mainnet() {
+        let config = get_contract_config(137);
+        assert!(config.is_some(), "should return config for Polygon mainnet");
+        let config = config.unwrap();
+        assert!(config.proxy_factory.is_some());
+        assert!(config.relay_hub.is_some());
+    }
+
+    #[test]
+    fn test_contract_config_amoy_testnet() {
+        let config = get_contract_config(80002);
+        assert!(config.is_some(), "should return config for Amoy testnet");
+        let config = config.unwrap();
+        assert!(config.proxy_factory.is_none(), "proxy not supported on Amoy");
+        assert!(config.relay_hub.is_none(), "relay hub not supported on Amoy");
+    }
+
+    #[test]
+    fn test_contract_config_unknown_chain() {
+        assert!(get_contract_config(999).is_none());
+    }
+
+    #[test]
+    fn test_relay_client_builder_default() {
+        let builder = RelayClientBuilder::default();
+        assert_eq!(builder.chain_id, 137);
+    }
 }
