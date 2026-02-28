@@ -42,10 +42,15 @@ struct RateLimiterInner {
 }
 
 /// Helper to create a quota: `count` requests per `period`.
+///
+/// Uses `Quota::with_period` for exact rate enforcement rather than
+/// ceiling-based `per_second`, which can over-permit for non-round windows.
 fn quota(count: u32, period: Duration) -> Quota {
-    let replenish_per_sec = (count as f64 / period.as_secs_f64()).ceil() as u32;
-    Quota::per_second(NonZeroU32::new(replenish_per_sec.max(1)).unwrap())
-        .allow_burst(NonZeroU32::new(count.max(1)).unwrap())
+    let count = count.max(1);
+    let interval = period / count;
+    Quota::with_period(interval)
+        .expect("quota interval must be non-zero")
+        .allow_burst(NonZeroU32::new(count).unwrap())
 }
 
 impl RateLimiter {
@@ -156,6 +161,12 @@ impl RateLimiter {
                     },
                     EndpointLimit {
                         path_prefix: "/tick-size",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(1_500, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/prices-history",
                         method: None,
                         burst: DirectLimiter::direct(quota(1_500, ten_sec)),
                         sustained: None,
@@ -283,13 +294,21 @@ impl Default for RetryConfig {
 
 impl RetryConfig {
     /// Calculate backoff duration with jitter for attempt N.
+    ///
+    /// Uses system clock nanos for non-deterministic jitter (75%-125% of base delay)
+    /// to avoid thundering herd when multiple clients retry simultaneously.
     pub fn backoff(&self, attempt: u32) -> Duration {
         let base = self
             .initial_backoff_ms
             .saturating_mul(1u64 << attempt.min(10));
         let capped = base.min(self.max_backoff_ms);
-        // Simple jitter: 75%-125% of computed delay
-        let jitter_factor = 0.75 + (attempt as f64 * 0.1 % 0.5);
+        // Use subsecond nanos as cheap non-deterministic jitter source
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .subsec_nanos();
+        // Map nanos to 0.75..1.25 range
+        let jitter_factor = 0.75 + (nanos as f64 / u32::MAX as f64) * 0.5;
         let ms = (capped as f64 * jitter_factor) as u64;
         Duration::from_millis(ms.max(1))
     }
@@ -313,9 +332,13 @@ mod tests {
     fn test_backoff_attempt_zero() {
         let cfg = RetryConfig::default();
         let d = cfg.backoff(0);
-        // base = 500 * 2^0 = 500, capped = 500, jitter = 0.75 + (0*0.1 % 0.5) = 0.75
-        // ms = 500 * 0.75 = 375
-        assert_eq!(d, Duration::from_millis(375));
+        // base = 500 * 2^0 = 500, capped = 500, jitter in [0.75, 1.25]
+        // ms in [375, 625]
+        let ms = d.as_millis() as u64;
+        assert!(
+            (375..=625).contains(&ms),
+            "attempt 0: {ms}ms not in [375, 625]"
+        );
     }
 
     #[test]
@@ -391,7 +414,7 @@ mod tests {
     #[test]
     fn test_clob_default_construction() {
         let rl = RateLimiter::clob_default();
-        assert_eq!(rl.inner.limits.len(), 11);
+        assert_eq!(rl.inner.limits.len(), 12);
         assert!(format!("{:?}", rl).contains("endpoints"));
     }
 
@@ -418,7 +441,7 @@ mod tests {
         let rl = RateLimiter::clob_default();
         let dbg = format!("{:?}", rl);
         assert!(dbg.contains("RateLimiter"), "missing struct name: {dbg}");
-        assert!(dbg.contains("endpoints: 11"), "missing count: {dbg}");
+        assert!(dbg.contains("endpoints: 12"), "missing count: {dbg}");
     }
 
     // ── Endpoint matching internals ──────────────────────────────
