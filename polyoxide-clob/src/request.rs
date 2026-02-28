@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use alloy::primitives::Address;
-use polyoxide_core::{current_timestamp, request::QueryBuilder, HttpClient};
+use polyoxide_core::{current_timestamp, request::QueryBuilder, retry_after_header, HttpClient};
 use reqwest::{Method, Response};
 use serde::de::DeserializeOwned;
 
@@ -171,8 +171,9 @@ impl<T: DeserializeOwned> Request<T> {
             // Execute request
             let response = request.send().await?;
             let status = response.status();
+            let retry_after = retry_after_header(&response);
 
-            if let Some(backoff) = http_client.should_retry(status, attempt) {
+            if let Some(backoff) = http_client.should_retry(status, attempt, retry_after.as_deref()) {
                 attempt += 1;
                 tracing::warn!(
                     "Rate limited (429) on {}, retry {} after {}ms",

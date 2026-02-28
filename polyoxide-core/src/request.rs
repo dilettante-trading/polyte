@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use reqwest::Response;
 use serde::de::DeserializeOwned;
 
-use crate::client::HttpClient;
+use crate::client::{retry_after_header, HttpClient};
 use crate::ApiError;
 
 /// Query parameter builder
@@ -131,8 +131,9 @@ impl<T: DeserializeOwned, E: RequestError> Request<T, E> {
                 .await
                 .map_err(|e| E::from(ApiError::from(e)))?;
             let status = response.status();
+            let retry_after = retry_after_header(&response);
 
-            if let Some(backoff) = http_client.should_retry(status, attempt) {
+            if let Some(backoff) = http_client.should_retry(status, attempt, retry_after.as_deref()) {
                 attempt += 1;
                 tracing::warn!(
                     "Rate limited (429) on {}, retry {} after {}ms",

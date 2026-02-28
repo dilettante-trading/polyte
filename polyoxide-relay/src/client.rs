@@ -12,7 +12,7 @@ use alloy::providers::{Provider, ProviderBuilder};
 use alloy::rpc::types::TransactionRequest;
 use alloy::signers::Signer;
 use alloy::sol_types::{Eip712Domain, SolCall, SolStruct, SolValue};
-use polyoxide_core::{HttpClient, HttpClientBuilder, RateLimiter};
+use polyoxide_core::{retry_after_header, HttpClient, HttpClientBuilder, RateLimiter};
 use serde::Serialize;
 use std::time::{Duration, Instant};
 use url::Url;
@@ -91,8 +91,9 @@ impl RelayClient {
                 .send()
                 .await?;
             let latency = start.elapsed();
+            let retry_after = retry_after_header(&response);
 
-            if let Some(backoff) = self.http_client.should_retry(response.status(), attempt) {
+            if let Some(backoff) = self.http_client.should_retry(response.status(), attempt, retry_after.as_deref()) {
                 attempt += 1;
                 tracing::warn!("Rate limited (429) on ping, retry {} after {}ms", attempt, backoff.as_millis());
                 tokio::time::sleep(backoff).await;
@@ -118,8 +119,9 @@ impl RelayClient {
         loop {
             self.http_client.acquire_rate_limit("/nonce", None).await;
             let resp = self.http_client.client.get(url.clone()).send().await?;
+            let retry_after = retry_after_header(&resp);
 
-            if let Some(backoff) = self.http_client.should_retry(resp.status(), attempt) {
+            if let Some(backoff) = self.http_client.should_retry(resp.status(), attempt, retry_after.as_deref()) {
                 attempt += 1;
                 tracing::warn!("Rate limited (429) on get_nonce, retry {} after {}ms", attempt, backoff.as_millis());
                 tokio::time::sleep(backoff).await;
@@ -150,8 +152,9 @@ impl RelayClient {
                 .acquire_rate_limit("/transaction", None)
                 .await;
             let resp = self.http_client.client.get(url.clone()).send().await?;
+            let retry_after = retry_after_header(&resp);
 
-            if let Some(backoff) = self.http_client.should_retry(resp.status(), attempt) {
+            if let Some(backoff) = self.http_client.should_retry(resp.status(), attempt, retry_after.as_deref()) {
                 attempt += 1;
                 tracing::warn!("Rate limited (429) on get_transaction, retry {} after {}ms", attempt, backoff.as_millis());
                 tokio::time::sleep(backoff).await;
@@ -182,8 +185,9 @@ impl RelayClient {
         loop {
             self.http_client.acquire_rate_limit("/deployed", None).await;
             let resp = self.http_client.client.get(url.clone()).send().await?;
+            let retry_after = retry_after_header(&resp);
 
-            if let Some(backoff) = self.http_client.should_retry(resp.status(), attempt) {
+            if let Some(backoff) = self.http_client.should_retry(resp.status(), attempt, retry_after.as_deref()) {
                 attempt += 1;
                 tracing::warn!("Rate limited (429) on get_deployed, retry {} after {}ms", attempt, backoff.as_millis());
                 tokio::time::sleep(backoff).await;
@@ -266,8 +270,9 @@ impl RelayClient {
                 .acquire_rate_limit("/relay-payload", None)
                 .await;
             let resp = self.http_client.client.get(url.clone()).send().await?;
+            let retry_after = retry_after_header(&resp);
 
-            if let Some(backoff) = self.http_client.should_retry(resp.status(), attempt) {
+            if let Some(backoff) = self.http_client.should_retry(resp.status(), attempt, retry_after.as_deref()) {
                 attempt += 1;
                 tracing::warn!("Rate limited (429) on get_relay_payload, retry {} after {}ms", attempt, backoff.as_millis());
                 tokio::time::sleep(backoff).await;
@@ -868,9 +873,10 @@ impl RelayClient {
                 .await?;
 
             let status = resp.status();
+            let retry_after = retry_after_header(&resp);
             tracing::debug!("Response status for {}: {}", endpoint, status);
 
-            if let Some(backoff) = self.http_client.should_retry(status, attempt) {
+            if let Some(backoff) = self.http_client.should_retry(status, attempt, retry_after.as_deref()) {
                 attempt += 1;
                 tracing::warn!(
                     "Rate limited (429) on {}, retry {} after {}ms",

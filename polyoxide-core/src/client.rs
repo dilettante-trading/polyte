@@ -3,8 +3,20 @@ use std::time::Duration;
 use reqwest::StatusCode;
 use url::Url;
 
+use reqwest::header::RETRY_AFTER;
+
 use crate::error::ApiError;
 use crate::rate_limit::{RateLimiter, RetryConfig};
+
+/// Extract the `Retry-After` header value as a string, if present and valid UTF-8.
+pub fn retry_after_header(response: &reqwest::Response) -> Option<String> {
+    response
+        .headers()
+        .get(RETRY_AFTER)?
+        .to_str()
+        .ok()
+        .map(String::from)
+}
 
 /// Default request timeout in milliseconds
 pub const DEFAULT_TIMEOUT_MS: u64 = 30_000;
@@ -34,9 +46,22 @@ impl HttpClient {
     }
 
     /// Check if a 429 response should be retried; returns backoff duration if yes.
-    pub fn should_retry(&self, status: StatusCode, attempt: u32) -> Option<Duration> {
+    ///
+    /// When `retry_after` is `Some`, the server-provided delay is used instead of
+    /// the client-computed exponential backoff (clamped to `max_backoff_ms`).
+    pub fn should_retry(
+        &self,
+        status: StatusCode,
+        attempt: u32,
+        retry_after: Option<&str>,
+    ) -> Option<Duration> {
         if status == StatusCode::TOO_MANY_REQUESTS && attempt < self.retry_config.max_retries {
-            Some(self.retry_config.backoff(attempt))
+            if let Some(delay) = retry_after.and_then(|v| v.parse::<f64>().ok()) {
+                let ms = (delay * 1000.0) as u64;
+                Some(Duration::from_millis(ms.min(self.retry_config.max_backoff_ms)))
+            } else {
+                Some(self.retry_config.backoff(attempt))
+            }
         } else {
             None
         }
@@ -150,10 +175,10 @@ mod tests {
             .unwrap();
         // Default max_retries=3, so attempts 0 and 2 should retry
         assert!(client
-            .should_retry(StatusCode::TOO_MANY_REQUESTS, 0)
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 0, None)
             .is_some());
         assert!(client
-            .should_retry(StatusCode::TOO_MANY_REQUESTS, 2)
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 2, None)
             .is_some());
     }
 
@@ -164,7 +189,7 @@ mod tests {
             .unwrap();
         // attempt == max_retries → no retry
         assert!(client
-            .should_retry(StatusCode::TOO_MANY_REQUESTS, 3)
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 3, None)
             .is_none());
     }
 
@@ -180,7 +205,7 @@ mod tests {
             StatusCode::FORBIDDEN,
         ] {
             assert!(
-                client.should_retry(status, 0).is_none(),
+                client.should_retry(status, 0, None).is_none(),
                 "expected None for {status}"
             );
         }
@@ -196,11 +221,66 @@ mod tests {
             .build()
             .unwrap();
         assert!(client
-            .should_retry(StatusCode::TOO_MANY_REQUESTS, 0)
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 0, None)
             .is_some());
         assert!(client
-            .should_retry(StatusCode::TOO_MANY_REQUESTS, 1)
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 1, None)
             .is_none());
+    }
+
+    #[test]
+    fn test_should_retry_uses_retry_after_header() {
+        let client = HttpClientBuilder::new("https://example.com")
+            .build()
+            .unwrap();
+        let d = client
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 0, Some("2"))
+            .unwrap();
+        assert_eq!(d, Duration::from_millis(2000));
+    }
+
+    #[test]
+    fn test_should_retry_retry_after_fractional_seconds() {
+        let client = HttpClientBuilder::new("https://example.com")
+            .build()
+            .unwrap();
+        let d = client
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 0, Some("0.5"))
+            .unwrap();
+        assert_eq!(d, Duration::from_millis(500));
+    }
+
+    #[test]
+    fn test_should_retry_retry_after_clamped_to_max_backoff() {
+        let client = HttpClientBuilder::new("https://example.com")
+            .build()
+            .unwrap();
+        // Default max_backoff_ms = 10_000; header says 60s
+        let d = client
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 0, Some("60"))
+            .unwrap();
+        assert_eq!(d, Duration::from_millis(10_000));
+    }
+
+    #[test]
+    fn test_should_retry_retry_after_invalid_falls_back() {
+        let client = HttpClientBuilder::new("https://example.com")
+            .build()
+            .unwrap();
+        // Non-numeric Retry-After (HTTP-date format) falls back to computed backoff
+        let d = client
+            .should_retry(
+                StatusCode::TOO_MANY_REQUESTS,
+                0,
+                Some("Wed, 21 Oct 2025 07:28:00 GMT"),
+            )
+            .unwrap();
+        // Should be in the jitter range for attempt 0: [375, 625]ms
+        let ms = d.as_millis() as u64;
+        assert!(
+            (375..=625).contains(&ms),
+            "expected fallback backoff in [375, 625], got {ms}"
+        );
     }
 
     // ── Builder wiring ───────────────────────────────────────────
