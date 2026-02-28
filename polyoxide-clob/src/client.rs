@@ -162,11 +162,24 @@ impl Clob {
             .as_ref()
             .ok_or_else(|| ClobError::validation("Account required to create order"))?;
 
+        if !params.amount.is_finite() {
+            return Err(ClobError::validation(
+                "Amount must be finite (no NaN or infinity)",
+            ));
+        }
         if params.amount <= 0.0 {
             return Err(ClobError::validation(format!(
                 "Amount must be positive, got {}",
                 params.amount
             )));
+        }
+        if let Some(p) = params.price {
+            if !p.is_finite() || p <= 0.0 || p > 1.0 {
+                return Err(ClobError::validation(format!(
+                    "Price must be finite and between 0.0 and 1.0, got {}",
+                    p
+                )));
+            }
         }
 
         // Fetch market metadata (neg_risk and tick_size)
@@ -433,6 +446,11 @@ pub struct CreateOrderParams {
 
 impl CreateOrderParams {
     pub fn validate(&self) -> Result<(), ClobError> {
+        if !self.price.is_finite() || !self.size.is_finite() {
+            return Err(ClobError::validation(
+                "Price and size must be finite (no NaN or infinity)",
+            ));
+        }
         if self.price <= 0.0 || self.price > 1.0 {
             return Err(ClobError::validation(format!(
                 "Price must be between 0.0 and 1.0, got {}",
@@ -444,9 +462,6 @@ impl CreateOrderParams {
                 "Size must be positive, got {}",
                 self.size
             )));
-        }
-        if self.price.is_nan() || self.size.is_nan() {
-            return Err(ClobError::validation("NaN values not allowed"));
         }
         Ok(())
     }
@@ -543,5 +558,93 @@ impl ClobBuilder {
 impl Default for ClobBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_params(price: f64, size: f64) -> CreateOrderParams {
+        CreateOrderParams {
+            token_id: "test".to_string(),
+            price,
+            size,
+            side: OrderSide::Buy,
+            order_type: OrderKind::Gtc,
+            post_only: false,
+            expiration: None,
+            funder: None,
+            signature_type: None,
+        }
+    }
+
+    #[test]
+    fn test_validate_rejects_nan_price() {
+        let params = make_params(f64::NAN, 100.0);
+        let err = params.validate().unwrap_err();
+        assert!(err.to_string().contains("finite"));
+    }
+
+    #[test]
+    fn test_validate_rejects_nan_size() {
+        let params = make_params(0.5, f64::NAN);
+        let err = params.validate().unwrap_err();
+        assert!(err.to_string().contains("finite"));
+    }
+
+    #[test]
+    fn test_validate_rejects_infinite_price() {
+        let params = make_params(f64::INFINITY, 100.0);
+        let err = params.validate().unwrap_err();
+        assert!(err.to_string().contains("finite"));
+    }
+
+    #[test]
+    fn test_validate_rejects_infinite_size() {
+        let params = make_params(0.5, f64::INFINITY);
+        let err = params.validate().unwrap_err();
+        assert!(err.to_string().contains("finite"));
+    }
+
+    #[test]
+    fn test_validate_rejects_neg_infinity_size() {
+        let params = make_params(0.5, f64::NEG_INFINITY);
+        let err = params.validate().unwrap_err();
+        assert!(err.to_string().contains("finite"));
+    }
+
+    #[test]
+    fn test_validate_rejects_price_out_of_range() {
+        let params = make_params(1.5, 100.0);
+        let err = params.validate().unwrap_err();
+        assert!(err.to_string().contains("between 0.0 and 1.0"));
+    }
+
+    #[test]
+    fn test_validate_rejects_zero_price() {
+        let params = make_params(0.0, 100.0);
+        let err = params.validate().unwrap_err();
+        assert!(err.to_string().contains("between 0.0 and 1.0"));
+    }
+
+    #[test]
+    fn test_validate_rejects_negative_size() {
+        let params = make_params(0.5, -10.0);
+        let err = params.validate().unwrap_err();
+        assert!(err.to_string().contains("positive"));
+    }
+
+    #[test]
+    fn test_validate_accepts_valid_params() {
+        let params = make_params(0.5, 100.0);
+        assert!(params.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_accepts_boundary_price() {
+        // Price exactly 1.0 should be valid
+        let params = make_params(1.0, 100.0);
+        assert!(params.validate().is_ok());
     }
 }
