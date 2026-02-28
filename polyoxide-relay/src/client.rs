@@ -162,7 +162,7 @@ impl RelayClient {
 
     fn derive_safe_address(&self, owner: Address) -> Address {
         let salt = keccak256(owner.abi_encode());
-        let init_code_hash = hex::decode(SAFE_INIT_CODE_HASH).unwrap();
+        let init_code_hash = hex::decode(SAFE_INIT_CODE_HASH).expect("valid hex constant");
 
         // CREATE2: keccak256(0xff ++ address ++ salt ++ keccak256(init_code))[12..]
         let mut input = Vec::new();
@@ -189,7 +189,7 @@ impl RelayClient {
         // encodePacked for address uses the 20 bytes directly.
         let salt = keccak256(owner.as_slice());
 
-        let init_code_hash = hex::decode(PROXY_INIT_CODE_HASH).unwrap();
+        let init_code_hash = hex::decode(PROXY_INIT_CODE_HASH).expect("valid hex constant");
 
         // CREATE2: keccak256(0xff ++ factory ++ salt ++ init_code_hash)[12..]
         let mut input = Vec::new();
@@ -332,7 +332,7 @@ impl RelayClient {
 
         // encoded_txns now needs to be wrapped in multiSend(bytes)
         // selector: 8d80ff0a
-        let mut data = hex::decode("8d80ff0a").unwrap();
+        let mut data = hex::decode("8d80ff0a").expect("valid hex constant");
 
         // Use alloy to encode `(bytes)` tuple.
         let multisend_data = (Bytes::from(encoded_txns),).abi_encode();
@@ -388,6 +388,9 @@ impl RelayClient {
         metadata: Option<String>,
         gas_limit: Option<u64>,
     ) -> Result<RelayerTransactionResponse, RelayError> {
+        if transactions.is_empty() {
+            return Err(RelayError::Api("No transactions to execute".into()));
+        }
         match self.wallet_type {
             WalletType::Safe => self.execute_safe(transactions, metadata).await,
             WalletType::Proxy => self.execute_proxy(transactions, metadata, gas_limit).await,
@@ -728,10 +731,12 @@ impl RelayClient {
         // 2. Setup Constants
         // USDC on Polygon
         let collateral =
-            Address::parse_checksummed("0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", None).unwrap();
+            Address::parse_checksummed("0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", None)
+                .map_err(|e| RelayError::Api(format!("Invalid address: {}", e)))?;
         // CTF Exchange Address on Polygon
         let ctf_exchange =
-            Address::parse_checksummed("0x4D97DCd97eC945f40cF65F87097ACe5EA0476045", None).unwrap();
+            Address::parse_checksummed("0x4D97DCd97eC945f40cF65F87097ACe5EA0476045", None)
+                .map_err(|e| RelayError::Api(format!("Invalid address: {}", e)))?;
         let parent_collection_id = [0u8; 32];
 
         // 3. Encode the Calldata
@@ -858,9 +863,9 @@ impl Default for RelayClientBuilder {
             .unwrap_or(137);
 
         Self::new()
-            .unwrap()
+            .expect("default URL is valid")
             .url(&relayer_url)
-            .unwrap()
+            .expect("default URL is valid")
             .chain_id(chain_id)
     }
 }

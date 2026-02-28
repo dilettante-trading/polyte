@@ -1,7 +1,6 @@
-use alloy::primitives::Address;
+use alloy::primitives::{address, Address};
 use polyoxide_core::{current_timestamp, Base64Format, Signer};
 use reqwest::header::{HeaderMap, HeaderValue};
-use std::str::FromStr;
 
 #[derive(Clone, Debug)]
 pub struct ContractConfig {
@@ -15,21 +14,15 @@ pub struct ContractConfig {
 pub fn get_contract_config(chain_id: u64) -> Option<ContractConfig> {
     match chain_id {
         137 => Some(ContractConfig {
-            safe_factory: Address::from_str("0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b").unwrap(),
-            safe_multisend: Address::from_str("0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761")
-                .unwrap(),
-            proxy_factory: Some(
-                Address::from_str("0xaB45c5A4B0c941a2F231C04C3f49182e1A254052").unwrap(),
-            ),
-            relay_hub: Some(
-                Address::from_str("0xD216153c06E857cD7f72665E0aF1d7D82172F494").unwrap(),
-            ),
+            safe_factory: address!("aacFeEa03eb1561C4e67d661e40682Bd20E3541b"),
+            safe_multisend: address!("A238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761"),
+            proxy_factory: Some(address!("aB45c5A4B0c941a2F231C04C3f49182e1A254052")),
+            relay_hub: Some(address!("D216153c06E857cD7f72665E0aF1d7D82172F494")),
             rpc_url: "https://polygon.drpc.org",
         }),
         80002 => Some(ContractConfig {
-            safe_factory: Address::from_str("0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b").unwrap(),
-            safe_multisend: Address::from_str("0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761")
-                .unwrap(),
+            safe_factory: address!("aacFeEa03eb1561C4e67d661e40682Bd20E3541b"),
+            safe_multisend: address!("A238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761"),
             proxy_factory: None, // Proxy not supported on Amoy testnet
             relay_hub: None,
             rpc_url: "https://rpc-amoy.polygon.technology",
@@ -78,17 +71,23 @@ impl BuilderConfig {
         let message = Signer::create_message(timestamp, method, path, body);
         let signature = signer.sign(&message, Base64Format::Standard)?;
 
-        headers.insert("POLY-API-KEY", HeaderValue::from_str(&self.key).unwrap());
+        headers.insert(
+            "POLY-API-KEY",
+            HeaderValue::from_str(&self.key).map_err(|e| e.to_string())?,
+        );
         headers.insert(
             "POLY-TIMESTAMP",
-            HeaderValue::from_str(&timestamp.to_string()).unwrap(),
+            HeaderValue::from_str(&timestamp.to_string()).map_err(|e| e.to_string())?,
         );
-        headers.insert("POLY-SIGNATURE", HeaderValue::from_str(&signature).unwrap());
+        headers.insert(
+            "POLY-SIGNATURE",
+            HeaderValue::from_str(&signature).map_err(|e| e.to_string())?,
+        );
 
         if let Some(passphrase) = &self.passphrase {
             headers.insert(
                 "POLY-PASSPHRASE",
-                HeaderValue::from_str(passphrase).unwrap(),
+                HeaderValue::from_str(passphrase).map_err(|e| e.to_string())?,
             );
         }
 
@@ -111,21 +110,21 @@ impl BuilderConfig {
 
         headers.insert(
             "POLY_BUILDER_API_KEY",
-            HeaderValue::from_str(&self.key).unwrap(),
+            HeaderValue::from_str(&self.key).map_err(|e| e.to_string())?,
         );
         headers.insert(
             "POLY_BUILDER_TIMESTAMP",
-            HeaderValue::from_str(&timestamp.to_string()).unwrap(),
+            HeaderValue::from_str(&timestamp.to_string()).map_err(|e| e.to_string())?,
         );
         headers.insert(
             "POLY_BUILDER_SIGNATURE",
-            HeaderValue::from_str(&signature).unwrap(),
+            HeaderValue::from_str(&signature).map_err(|e| e.to_string())?,
         );
 
         if let Some(passphrase) = &self.passphrase {
             headers.insert(
                 "POLY_BUILDER_PASSPHRASE",
-                HeaderValue::from_str(passphrase).unwrap(),
+                HeaderValue::from_str(passphrase).map_err(|e| e.to_string())?,
             );
         }
 
