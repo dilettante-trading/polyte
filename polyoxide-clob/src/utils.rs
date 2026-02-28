@@ -114,7 +114,8 @@ pub fn calculate_market_price(levels: &[OrderLevel], amount: f64, side: OrderSid
         }
     }
 
-    levels.last().and_then(|l| l.price.to_f64())
+    // Not enough liquidity to fill the requested amount
+    None
 }
 
 /// Convert f64 to raw integer string by multiplying by 10^decimals
@@ -129,7 +130,7 @@ fn to_raw_amount(val: f64, decimals: u32) -> String {
 
 /// Generate random salt for orders
 pub fn generate_salt() -> String {
-    rand::rng().random::<u32>().to_string()
+    rand::rng().random::<u128>().to_string()
 }
 
 // Helpers for rounding
@@ -216,5 +217,45 @@ mod tests {
         }];
         let price = calculate_market_price(&levels, 100.0, OrderSide::Buy);
         assert_eq!(price, Some(0.50));
+    }
+
+    #[test]
+    fn test_calculate_market_price_insufficient_liquidity() {
+        use rust_decimal_macros::dec;
+        // Only 10 shares available at 0.50, but we want 1000 USDC worth
+        let levels = vec![OrderLevel {
+            price: dec!(0.50),
+            size: dec!(10),
+        }];
+        // Buy: sum += price * size = 0.50 * 10 = 5.0, which is < 1000.0
+        let price = calculate_market_price(&levels, 1000.0, OrderSide::Buy);
+        assert_eq!(price, None, "Should return None when liquidity is insufficient");
+    }
+
+    #[test]
+    fn test_calculate_market_price_empty_levels() {
+        let price = calculate_market_price(&[], 100.0, OrderSide::Buy);
+        assert_eq!(price, None);
+    }
+
+    #[test]
+    fn test_calculate_market_price_sell_insufficient() {
+        use rust_decimal_macros::dec;
+        let levels = vec![OrderLevel {
+            price: dec!(0.50),
+            size: dec!(10),
+        }];
+        // Sell: sum += size = 10, which is < 100
+        let price = calculate_market_price(&levels, 100.0, OrderSide::Sell);
+        assert_eq!(price, None, "Should return None when sell liquidity is insufficient");
+    }
+
+    #[test]
+    fn test_generate_salt_large_range() {
+        // Salt should be a valid u128 string (can be very large)
+        let salt = generate_salt();
+        let parsed: u128 = salt.parse().expect("Salt should parse as u128");
+        // Just verify it's a valid number — randomness means we can't predict it
+        assert!(parsed <= u128::MAX);
     }
 }
