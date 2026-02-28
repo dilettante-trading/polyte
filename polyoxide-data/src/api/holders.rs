@@ -81,3 +81,70 @@ pub struct Holder {
     /// Optimized profile image URL
     pub profile_image_optimized: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialize_market_holders() {
+        let json = r#"{
+            "token": "token_abc",
+            "holders": [
+                {
+                    "proxyWallet": "0xholder1",
+                    "bio": "Top trader",
+                    "asset": "token_abc",
+                    "pseudonym": "whale1",
+                    "amount": 50000.0,
+                    "displayUsernamePublic": true,
+                    "outcomeIndex": 0,
+                    "name": "Holder One",
+                    "profileImage": "https://example.com/img.png",
+                    "profileImageOptimized": "https://example.com/img_opt.png"
+                },
+                {
+                    "proxyWallet": "0xholder2",
+                    "bio": null,
+                    "asset": null,
+                    "pseudonym": null,
+                    "amount": 1000.0,
+                    "displayUsernamePublic": null,
+                    "outcomeIndex": 1,
+                    "name": null,
+                    "profileImage": null,
+                    "profileImageOptimized": null
+                }
+            ]
+        }"#;
+
+        let mh: MarketHolders = serde_json::from_str(json).unwrap();
+        assert_eq!(mh.token, "token_abc");
+        assert_eq!(mh.holders.len(), 2);
+
+        let h1 = &mh.holders[0];
+        assert_eq!(h1.proxy_wallet, "0xholder1");
+        assert_eq!(h1.bio, Some("Top trader".to_string()));
+        assert!((h1.amount - 50000.0).abs() < f64::EPSILON);
+        assert_eq!(h1.outcome_index, 0);
+        assert_eq!(h1.display_username_public, Some(true));
+        assert_eq!(h1.name, Some("Holder One".to_string()));
+
+        let h2 = &mh.holders[1];
+        assert_eq!(h2.proxy_wallet, "0xholder2");
+        assert!(h2.bio.is_none());
+        assert!(h2.asset.is_none());
+        assert!(h2.pseudonym.is_none());
+        assert!((h2.amount - 1000.0).abs() < f64::EPSILON);
+        assert_eq!(h2.outcome_index, 1);
+        assert!(h2.name.is_none());
+    }
+
+    #[test]
+    fn deserialize_empty_holders_list() {
+        let json = r#"{"token": "empty_token", "holders": []}"#;
+        let mh: MarketHolders = serde_json::from_str(json).unwrap();
+        assert_eq!(mh.token, "empty_token");
+        assert!(mh.holders.is_empty());
+    }
+}

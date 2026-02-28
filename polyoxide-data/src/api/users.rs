@@ -382,3 +382,35 @@ impl ListActivity {
         self.request.send().await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialize_user_traded() {
+        let json = r#"{"user": "0xabcdef1234567890", "traded": 42}"#;
+        let ut: UserTraded = serde_json::from_str(json).unwrap();
+        assert_eq!(ut.user, "0xabcdef1234567890");
+        assert_eq!(ut.traded, 42);
+    }
+
+    #[test]
+    fn deserialize_user_traded_zero() {
+        let json = r#"{"user": "0x0000000000000000000000000000000000000001", "traded": 0}"#;
+        let ut: UserTraded = serde_json::from_str(json).unwrap();
+        assert_eq!(ut.traded, 0);
+    }
+
+    #[test]
+    fn user_traded_roundtrip() {
+        let original = UserTraded {
+            user: "0x1234".to_string(),
+            traded: 100,
+        };
+        let json = serde_json::to_string(&original).unwrap();
+        let deserialized: UserTraded = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.user, original.user);
+        assert_eq!(deserialized.traded, original.traded);
+    }
+}

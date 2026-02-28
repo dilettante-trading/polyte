@@ -36,3 +36,43 @@ pub struct MarketVolume {
     /// Volume value
     pub value: f64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialize_live_volume() {
+        let json = r#"{
+            "total": 750000.0,
+            "markets": [
+                {"market": "cond_001", "value": 500000.0},
+                {"market": "cond_002", "value": 250000.0}
+            ]
+        }"#;
+
+        let vol: LiveVolume = serde_json::from_str(json).unwrap();
+        assert!((vol.total - 750000.0).abs() < f64::EPSILON);
+        assert_eq!(vol.markets.len(), 2);
+        assert_eq!(vol.markets[0].market, "cond_001");
+        assert!((vol.markets[0].value - 500000.0).abs() < f64::EPSILON);
+        assert_eq!(vol.markets[1].market, "cond_002");
+        assert!((vol.markets[1].value - 250000.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn deserialize_live_volume_empty_markets() {
+        let json = r#"{"total": 0.0, "markets": []}"#;
+        let vol: LiveVolume = serde_json::from_str(json).unwrap();
+        assert!((vol.total - 0.0).abs() < f64::EPSILON);
+        assert!(vol.markets.is_empty());
+    }
+
+    #[test]
+    fn deserialize_market_volume() {
+        let json = r#"{"market": "cond_xyz", "value": 12345.67}"#;
+        let mv: MarketVolume = serde_json::from_str(json).unwrap();
+        assert_eq!(mv.market, "cond_xyz");
+        assert!((mv.value - 12345.67).abs() < f64::EPSILON);
+    }
+}

@@ -136,3 +136,130 @@ pub struct BuilderVolume {
     /// Builder's ranking position
     pub rank: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn time_period_display_matches_serde() {
+        let variants = [
+            TimePeriod::Day,
+            TimePeriod::Week,
+            TimePeriod::Month,
+            TimePeriod::All,
+        ];
+        for variant in variants {
+            let serialized = serde_json::to_value(variant).unwrap();
+            let display = variant.to_string();
+            assert_eq!(
+                format!("\"{}\"", display),
+                serialized.to_string(),
+                "Display mismatch for {:?}",
+                variant
+            );
+        }
+    }
+
+    #[test]
+    fn time_period_serde_roundtrip() {
+        for variant in [
+            TimePeriod::Day,
+            TimePeriod::Week,
+            TimePeriod::Month,
+            TimePeriod::All,
+        ] {
+            let json = serde_json::to_string(&variant).unwrap();
+            let deserialized: TimePeriod = serde_json::from_str(&json).unwrap();
+            assert_eq!(variant, deserialized);
+        }
+    }
+
+    #[test]
+    fn time_period_default_is_day() {
+        assert_eq!(TimePeriod::default(), TimePeriod::Day);
+    }
+
+    #[test]
+    fn time_period_specific_values() {
+        assert_eq!(TimePeriod::Day.to_string(), "DAY");
+        assert_eq!(TimePeriod::Week.to_string(), "WEEK");
+        assert_eq!(TimePeriod::Month.to_string(), "MONTH");
+        assert_eq!(TimePeriod::All.to_string(), "ALL");
+    }
+
+    #[test]
+    fn deserialize_builder_ranking() {
+        let json = r#"{
+            "rank": "1",
+            "builder": "polymarket-app",
+            "volume": 1500000.50,
+            "activeUsers": 25000,
+            "verified": true,
+            "builderLogo": "https://example.com/logo.png"
+        }"#;
+
+        let ranking: BuilderRanking = serde_json::from_str(json).unwrap();
+        assert_eq!(ranking.rank, "1");
+        assert_eq!(ranking.builder, "polymarket-app");
+        assert!((ranking.volume - 1500000.50).abs() < f64::EPSILON);
+        assert_eq!(ranking.active_users, 25000);
+        assert!(ranking.verified);
+        assert_eq!(
+            ranking.builder_logo,
+            Some("https://example.com/logo.png".to_string())
+        );
+    }
+
+    #[test]
+    fn deserialize_builder_ranking_null_logo() {
+        let json = r#"{
+            "rank": "5",
+            "builder": "unknown-builder",
+            "volume": 100.0,
+            "activeUsers": 10,
+            "verified": false,
+            "builderLogo": null
+        }"#;
+
+        let ranking: BuilderRanking = serde_json::from_str(json).unwrap();
+        assert_eq!(ranking.rank, "5");
+        assert!(!ranking.verified);
+        assert!(ranking.builder_logo.is_none());
+    }
+
+    #[test]
+    fn deserialize_builder_volume() {
+        let json = r#"{
+            "dt": "2025-01-15T00:00:00Z",
+            "builder": "top-builder",
+            "builderLogo": null,
+            "verified": true,
+            "volume": 500000.0,
+            "activeUsers": 1200,
+            "rank": "3"
+        }"#;
+
+        let vol: BuilderVolume = serde_json::from_str(json).unwrap();
+        assert_eq!(vol.dt, "2025-01-15T00:00:00Z");
+        assert_eq!(vol.builder, "top-builder");
+        assert!(vol.verified);
+        assert!((vol.volume - 500000.0).abs() < f64::EPSILON);
+        assert_eq!(vol.active_users, 1200);
+        assert_eq!(vol.rank, "3");
+        assert!(vol.builder_logo.is_none());
+    }
+
+    #[test]
+    fn deserialize_builder_ranking_list() {
+        let json = r#"[
+            {"rank": "1", "builder": "a", "volume": 100.0, "activeUsers": 5, "verified": true, "builderLogo": null},
+            {"rank": "2", "builder": "b", "volume": 50.0, "activeUsers": 3, "verified": false, "builderLogo": null}
+        ]"#;
+
+        let rankings: Vec<BuilderRanking> = serde_json::from_str(json).unwrap();
+        assert_eq!(rankings.len(), 2);
+        assert_eq!(rankings[0].rank, "1");
+        assert_eq!(rankings[1].rank, "2");
+    }
+}

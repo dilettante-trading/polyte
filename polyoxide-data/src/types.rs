@@ -488,4 +488,390 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn trade_side_display_matches_serde() {
+        let variants = [TradeSide::Buy, TradeSide::Sell];
+        for variant in variants {
+            let serialized = serde_json::to_value(variant).unwrap();
+            let display = variant.to_string();
+            assert_eq!(
+                format!("\"{}\"", display),
+                serialized.to_string(),
+                "Display mismatch for {:?}",
+                variant
+            );
+        }
+    }
+
+    #[test]
+    fn trade_filter_type_display_matches_serde() {
+        let variants = [TradeFilterType::Cash, TradeFilterType::Tokens];
+        for variant in variants {
+            let serialized = serde_json::to_value(variant).unwrap();
+            let display = variant.to_string();
+            assert_eq!(
+                format!("\"{}\"", display),
+                serialized.to_string(),
+                "Display mismatch for {:?}",
+                variant
+            );
+        }
+    }
+
+    #[test]
+    fn activity_type_display_matches_serde() {
+        let variants = [
+            ActivityType::Trade,
+            ActivityType::Split,
+            ActivityType::Merge,
+            ActivityType::Redeem,
+            ActivityType::Reward,
+            ActivityType::Conversion,
+        ];
+        for variant in variants {
+            let serialized = serde_json::to_value(variant).unwrap();
+            let display = variant.to_string();
+            assert_eq!(
+                format!("\"{}\"", display),
+                serialized.to_string(),
+                "Display mismatch for {:?}",
+                variant
+            );
+        }
+    }
+
+    #[test]
+    fn activity_type_roundtrip_serde() {
+        for variant in [
+            ActivityType::Trade,
+            ActivityType::Split,
+            ActivityType::Merge,
+            ActivityType::Redeem,
+            ActivityType::Reward,
+            ActivityType::Conversion,
+        ] {
+            let json = serde_json::to_string(&variant).unwrap();
+            let deserialized: ActivityType = serde_json::from_str(&json).unwrap();
+            assert_eq!(variant, deserialized);
+        }
+    }
+
+    #[test]
+    fn activity_type_rejects_unknown_variant() {
+        let result = serde_json::from_str::<ActivityType>("\"UNKNOWN\"");
+        assert!(result.is_err(), "should reject unknown activity type");
+    }
+
+    #[test]
+    fn activity_type_rejects_lowercase() {
+        let result = serde_json::from_str::<ActivityType>("\"trade\"");
+        assert!(result.is_err(), "should reject lowercase activity type");
+    }
+
+    #[test]
+    fn sort_direction_default_is_desc() {
+        assert_eq!(SortDirection::default(), SortDirection::Desc);
+    }
+
+    #[test]
+    fn closed_position_sort_by_default_is_realized_pnl() {
+        assert_eq!(
+            ClosedPositionSortBy::default(),
+            ClosedPositionSortBy::RealizedPnl
+        );
+    }
+
+    #[test]
+    fn activity_sort_by_default_is_timestamp() {
+        assert_eq!(ActivitySortBy::default(), ActivitySortBy::Timestamp);
+    }
+
+    #[test]
+    fn position_sort_by_serde_roundtrip() {
+        for variant in [
+            PositionSortBy::Current,
+            PositionSortBy::Initial,
+            PositionSortBy::Tokens,
+            PositionSortBy::CashPnl,
+            PositionSortBy::PercentPnl,
+            PositionSortBy::Title,
+            PositionSortBy::Resolving,
+            PositionSortBy::Price,
+            PositionSortBy::AvgPrice,
+        ] {
+            let json = serde_json::to_string(&variant).unwrap();
+            let deserialized: PositionSortBy = serde_json::from_str(&json).unwrap();
+            assert_eq!(variant, deserialized);
+        }
+    }
+
+    #[test]
+    fn deserialize_position_from_json() {
+        let json = r#"{
+            "proxyWallet": "0xabc123",
+            "asset": "token123",
+            "conditionId": "cond456",
+            "size": 100.5,
+            "avgPrice": 0.65,
+            "initialValue": 65.0,
+            "currentValue": 70.0,
+            "cashPnl": 5.0,
+            "percentPnl": 7.69,
+            "totalBought": 100.5,
+            "realizedPnl": 2.0,
+            "percentRealizedPnl": 3.08,
+            "curPrice": 0.70,
+            "redeemable": false,
+            "mergeable": true,
+            "title": "Will X happen?",
+            "slug": "will-x-happen",
+            "icon": "https://example.com/icon.png",
+            "eventSlug": "x-event",
+            "outcome": "Yes",
+            "outcomeIndex": 0,
+            "oppositeOutcome": "No",
+            "oppositeAsset": "token789",
+            "endDate": "2025-12-31",
+            "negativeRisk": false
+        }"#;
+
+        let pos: Position = serde_json::from_str(json).unwrap();
+        assert_eq!(pos.proxy_wallet, "0xabc123");
+        assert_eq!(pos.asset, "token123");
+        assert_eq!(pos.condition_id, "cond456");
+        assert!((pos.size - 100.5).abs() < f64::EPSILON);
+        assert!((pos.avg_price - 0.65).abs() < f64::EPSILON);
+        assert!((pos.initial_value - 65.0).abs() < f64::EPSILON);
+        assert!((pos.current_value - 70.0).abs() < f64::EPSILON);
+        assert!((pos.cash_pnl - 5.0).abs() < f64::EPSILON);
+        assert!(!pos.redeemable);
+        assert!(pos.mergeable);
+        assert_eq!(pos.title, "Will X happen?");
+        assert_eq!(pos.outcome, "Yes");
+        assert_eq!(pos.outcome_index, 0);
+        assert_eq!(pos.opposite_outcome, "No");
+        assert!(!pos.negative_risk);
+        assert_eq!(pos.icon, Some("https://example.com/icon.png".to_string()));
+        assert_eq!(pos.event_slug, Some("x-event".to_string()));
+    }
+
+    #[test]
+    fn deserialize_position_with_null_optionals() {
+        let json = r#"{
+            "proxyWallet": "0xabc123",
+            "asset": "token123",
+            "conditionId": "cond456",
+            "size": 0.0,
+            "avgPrice": 0.0,
+            "initialValue": 0.0,
+            "currentValue": 0.0,
+            "cashPnl": 0.0,
+            "percentPnl": 0.0,
+            "totalBought": 0.0,
+            "realizedPnl": 0.0,
+            "percentRealizedPnl": 0.0,
+            "curPrice": 0.0,
+            "redeemable": false,
+            "mergeable": false,
+            "title": "Test",
+            "slug": "test",
+            "icon": null,
+            "eventSlug": null,
+            "outcome": "No",
+            "outcomeIndex": 1,
+            "oppositeOutcome": "Yes",
+            "oppositeAsset": "token000",
+            "endDate": null,
+            "negativeRisk": true
+        }"#;
+
+        let pos: Position = serde_json::from_str(json).unwrap();
+        assert!(pos.icon.is_none());
+        assert!(pos.event_slug.is_none());
+        assert!(pos.end_date.is_none());
+        assert!(pos.negative_risk);
+    }
+
+    #[test]
+    fn deserialize_closed_position_from_json() {
+        let json = r#"{
+            "proxyWallet": "0xdef456",
+            "asset": "token_closed",
+            "conditionId": "cond_closed",
+            "avgPrice": 0.45,
+            "totalBought": 200.0,
+            "realizedPnl": -10.0,
+            "curPrice": 0.35,
+            "timestamp": 1700000000,
+            "title": "Closed market?",
+            "slug": "closed-market",
+            "icon": null,
+            "eventSlug": "closed-event",
+            "outcome": "No",
+            "outcomeIndex": 1,
+            "oppositeOutcome": "Yes",
+            "oppositeAsset": "token_opp",
+            "endDate": "2024-06-30"
+        }"#;
+
+        let closed: ClosedPosition = serde_json::from_str(json).unwrap();
+        assert_eq!(closed.proxy_wallet, "0xdef456");
+        assert!((closed.avg_price - 0.45).abs() < f64::EPSILON);
+        assert!((closed.realized_pnl - (-10.0)).abs() < f64::EPSILON);
+        assert_eq!(closed.timestamp, 1700000000);
+        assert_eq!(closed.outcome, "No");
+        assert_eq!(closed.outcome_index, 1);
+        assert!(closed.icon.is_none());
+        assert_eq!(closed.event_slug, Some("closed-event".to_string()));
+    }
+
+    #[test]
+    fn deserialize_trade_from_json() {
+        let json = r#"{
+            "proxyWallet": "0x1234",
+            "side": "BUY",
+            "asset": "token_buy",
+            "conditionId": "cond_trade",
+            "size": 50.0,
+            "price": 0.72,
+            "timestamp": 1700001000,
+            "title": "Trade market?",
+            "slug": "trade-market",
+            "icon": "https://example.com/trade.png",
+            "eventSlug": null,
+            "outcome": "Yes",
+            "outcomeIndex": 0,
+            "name": "TraderOne",
+            "pseudonym": "t1",
+            "bio": "A trader",
+            "profileImage": null,
+            "profileImageOptimized": null,
+            "transactionHash": "0xhash123"
+        }"#;
+
+        let trade: Trade = serde_json::from_str(json).unwrap();
+        assert_eq!(trade.proxy_wallet, "0x1234");
+        assert_eq!(trade.side, TradeSide::Buy);
+        assert!((trade.size - 50.0).abs() < f64::EPSILON);
+        assert!((trade.price - 0.72).abs() < f64::EPSILON);
+        assert_eq!(trade.timestamp, 1700001000);
+        assert_eq!(trade.name, Some("TraderOne".to_string()));
+        assert_eq!(trade.transaction_hash, Some("0xhash123".to_string()));
+        assert!(trade.profile_image.is_none());
+    }
+
+    #[test]
+    fn deserialize_trade_sell_side() {
+        let json = r#"{
+            "proxyWallet": "0x5678",
+            "side": "SELL",
+            "asset": "token_sell",
+            "conditionId": "cond_sell",
+            "size": 25.0,
+            "price": 0.30,
+            "timestamp": 1700002000,
+            "title": "Sell test",
+            "slug": "sell-test",
+            "icon": null,
+            "eventSlug": null,
+            "outcome": "No",
+            "outcomeIndex": 1,
+            "name": null,
+            "pseudonym": null,
+            "bio": null,
+            "profileImage": null,
+            "profileImageOptimized": null,
+            "transactionHash": null
+        }"#;
+
+        let trade: Trade = serde_json::from_str(json).unwrap();
+        assert_eq!(trade.side, TradeSide::Sell);
+        assert!(trade.name.is_none());
+        assert!(trade.transaction_hash.is_none());
+    }
+
+    #[test]
+    fn deserialize_activity_from_json() {
+        let json = r#"{
+            "proxyWallet": "0xact123",
+            "timestamp": 1700003000,
+            "conditionId": "cond_act",
+            "type": "TRADE",
+            "size": 10.0,
+            "usdcSize": 7.50,
+            "transactionHash": "0xacthash",
+            "price": 0.75,
+            "asset": "token_act",
+            "side": "BUY",
+            "outcomeIndex": 0,
+            "title": "Activity market",
+            "slug": "activity-market",
+            "icon": null,
+            "outcome": "Yes",
+            "name": null,
+            "pseudonym": null,
+            "bio": null,
+            "profileImage": null,
+            "profileImageOptimized": null
+        }"#;
+
+        let activity: Activity = serde_json::from_str(json).unwrap();
+        assert_eq!(activity.proxy_wallet, "0xact123");
+        assert_eq!(activity.activity_type, ActivityType::Trade);
+        assert!((activity.size - 10.0).abs() < f64::EPSILON);
+        assert!((activity.usdc_size - 7.50).abs() < f64::EPSILON);
+        assert_eq!(activity.side, Some("BUY".to_string()));
+        assert_eq!(activity.outcome_index, Some(0));
+    }
+
+    #[test]
+    fn deserialize_activity_merge_type() {
+        let json = r#"{
+            "proxyWallet": "0xmerge",
+            "timestamp": 1700004000,
+            "conditionId": "cond_merge",
+            "type": "MERGE",
+            "size": 5.0,
+            "usdcSize": 3.0,
+            "transactionHash": null,
+            "price": null,
+            "asset": null,
+            "side": "",
+            "outcomeIndex": null,
+            "title": null,
+            "slug": null,
+            "icon": null,
+            "outcome": null,
+            "name": null,
+            "pseudonym": null,
+            "bio": null,
+            "profileImage": null,
+            "profileImageOptimized": null
+        }"#;
+
+        let activity: Activity = serde_json::from_str(json).unwrap();
+        assert_eq!(activity.activity_type, ActivityType::Merge);
+        // Side is an empty string from the API, stored as Some("")
+        assert_eq!(activity.side, Some("".to_string()));
+        assert!(activity.price.is_none());
+        assert!(activity.asset.is_none());
+        assert!(activity.title.is_none());
+    }
+
+    #[test]
+    fn deserialize_user_value() {
+        let json = r#"{"user": "0xuser", "value": 1234.56}"#;
+        let uv: UserValue = serde_json::from_str(json).unwrap();
+        assert_eq!(uv.user, "0xuser");
+        assert!((uv.value - 1234.56).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn deserialize_open_interest() {
+        let json = r#"{"market": "0xcond", "value": 50000.0}"#;
+        let oi: OpenInterest = serde_json::from_str(json).unwrap();
+        assert_eq!(oi.market, "0xcond");
+        assert!((oi.value - 50000.0).abs() < f64::EPSILON);
+    }
 }

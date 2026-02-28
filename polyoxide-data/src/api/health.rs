@@ -60,3 +60,25 @@ pub struct HealthResponse {
     /// Status indicator (returns "OK" when healthy)
     pub data: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialize_health_response() {
+        let json = r#"{"data": "OK"}"#;
+        let health: HealthResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(health.data, "OK");
+    }
+
+    #[test]
+    fn health_response_roundtrip() {
+        let original = HealthResponse {
+            data: "OK".to_string(),
+        };
+        let json = serde_json::to_string(&original).unwrap();
+        let deserialized: HealthResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.data, original.data);
+    }
+}
