@@ -295,20 +295,15 @@ impl Default for RetryConfig {
 impl RetryConfig {
     /// Calculate backoff duration with jitter for attempt N.
     ///
-    /// Uses system clock nanos for non-deterministic jitter (75%-125% of base delay)
-    /// to avoid thundering herd when multiple clients retry simultaneously.
+    /// Uses `fastrand` for uniform jitter (75%-125% of base delay) to avoid
+    /// thundering herd when multiple clients retry simultaneously.
     pub fn backoff(&self, attempt: u32) -> Duration {
         let base = self
             .initial_backoff_ms
             .saturating_mul(1u64 << attempt.min(10));
         let capped = base.min(self.max_backoff_ms);
-        // Use subsecond nanos as cheap non-deterministic jitter source
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .subsec_nanos();
-        // Map nanos to 0.75..1.25 range
-        let jitter_factor = 0.75 + (nanos as f64 / u32::MAX as f64) * 0.5;
+        // Uniform jitter in 0.75..1.25 range
+        let jitter_factor = 0.75 + (fastrand::f64() * 0.5);
         let ms = (capped as f64 * jitter_factor) as u64;
         Duration::from_millis(ms.max(1))
     }
@@ -391,6 +386,27 @@ mod tests {
         let ceiling = (cfg.max_backoff_ms as f64 * 1.25) as u64;
         assert!(d.as_millis() as u64 <= ceiling);
         assert!(d.as_millis() >= 1);
+    }
+
+    #[test]
+    fn test_backoff_jitter_distribution() {
+        // Verify jitter isn't degenerate (all clustering at one end).
+        // Sample 200 values and check both halves of the range are hit.
+        let cfg = RetryConfig::default();
+        let midpoint = cfg.initial_backoff_ms; // 500ms (center of 375..625 range)
+        let (mut below, mut above) = (0u32, 0u32);
+        for _ in 0..200 {
+            let ms = cfg.backoff(0).as_millis() as u64;
+            if ms < midpoint {
+                below += 1;
+            } else {
+                above += 1;
+            }
+        }
+        assert!(
+            below >= 20 && above >= 20,
+            "jitter looks degenerate: {below} below midpoint, {above} above"
+        );
     }
 
     // ── quota() ──────────────────────────────────────────────────

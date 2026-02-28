@@ -80,63 +80,93 @@ impl RelayClient {
     /// # }
     /// ```
     pub async fn ping(&self) -> Result<Duration, RelayError> {
-        self.http_client.acquire_rate_limit("/", None).await;
-        let start = Instant::now();
-        let response = self
-            .http_client
-            .client
-            .get(self.http_client.base_url.clone())
-            .send()
-            .await?;
-        let latency = start.elapsed();
+        let mut attempt = 0u32;
+        loop {
+            self.http_client.acquire_rate_limit("/", None).await;
+            let start = Instant::now();
+            let response = self
+                .http_client
+                .client
+                .get(self.http_client.base_url.clone())
+                .send()
+                .await?;
+            let latency = start.elapsed();
 
-        if !response.status().is_success() {
-            let text = response.text().await?;
-            return Err(RelayError::Api(format!("Ping failed: {}", text)));
+            if let Some(backoff) = self.http_client.should_retry(response.status(), attempt) {
+                attempt += 1;
+                tracing::warn!("Rate limited (429) on ping, retry {} after {}ms", attempt, backoff.as_millis());
+                tokio::time::sleep(backoff).await;
+                continue;
+            }
+
+            if !response.status().is_success() {
+                let text = response.text().await?;
+                return Err(RelayError::Api(format!("Ping failed: {}", text)));
+            }
+
+            return Ok(latency);
         }
-
-        Ok(latency)
     }
 
     pub async fn get_nonce(&self, address: Address) -> Result<u64, RelayError> {
-        self.http_client.acquire_rate_limit("/nonce", None).await;
         let url = self.http_client.base_url.join(&format!(
             "nonce?address={}&type={}",
             address,
             self.wallet_type.as_str()
         ))?;
-        let resp = self.http_client.client.get(url).send().await?;
+        let mut attempt = 0u32;
+        loop {
+            self.http_client.acquire_rate_limit("/nonce", None).await;
+            let resp = self.http_client.client.get(url.clone()).send().await?;
 
-        if !resp.status().is_success() {
-            let text = resp.text().await?;
-            return Err(RelayError::Api(format!("get_nonce failed: {}", text)));
+            if let Some(backoff) = self.http_client.should_retry(resp.status(), attempt) {
+                attempt += 1;
+                tracing::warn!("Rate limited (429) on get_nonce, retry {} after {}ms", attempt, backoff.as_millis());
+                tokio::time::sleep(backoff).await;
+                continue;
+            }
+
+            if !resp.status().is_success() {
+                let text = resp.text().await?;
+                return Err(RelayError::Api(format!("get_nonce failed: {}", text)));
+            }
+
+            let data = resp.json::<NonceResponse>().await?;
+            return Ok(data.nonce);
         }
-
-        let data = resp.json::<NonceResponse>().await?;
-        Ok(data.nonce)
     }
 
     pub async fn get_transaction(
         &self,
         transaction_id: &str,
     ) -> Result<TransactionStatusResponse, RelayError> {
-        self.http_client
-            .acquire_rate_limit("/transaction", None)
-            .await;
         let url = self
             .http_client
             .base_url
             .join(&format!("transaction?id={}", transaction_id))?;
-        let resp = self.http_client.client.get(url).send().await?;
+        let mut attempt = 0u32;
+        loop {
+            self.http_client
+                .acquire_rate_limit("/transaction", None)
+                .await;
+            let resp = self.http_client.client.get(url.clone()).send().await?;
 
-        if !resp.status().is_success() {
-            let text = resp.text().await?;
-            return Err(RelayError::Api(format!("get_transaction failed: {}", text)));
+            if let Some(backoff) = self.http_client.should_retry(resp.status(), attempt) {
+                attempt += 1;
+                tracing::warn!("Rate limited (429) on get_transaction, retry {} after {}ms", attempt, backoff.as_millis());
+                tokio::time::sleep(backoff).await;
+                continue;
+            }
+
+            if !resp.status().is_success() {
+                let text = resp.text().await?;
+                return Err(RelayError::Api(format!("get_transaction failed: {}", text)));
+            }
+
+            return resp.json::<TransactionStatusResponse>()
+                .await
+                .map_err(Into::into);
         }
-
-        resp.json::<TransactionStatusResponse>()
-            .await
-            .map_err(Into::into)
     }
 
     pub async fn get_deployed(&self, safe_address: Address) -> Result<bool, RelayError> {
@@ -144,20 +174,30 @@ impl RelayClient {
         struct DeployedResponse {
             deployed: bool,
         }
-        self.http_client.acquire_rate_limit("/deployed", None).await;
         let url = self
             .http_client
             .base_url
             .join(&format!("deployed?address={}", safe_address))?;
-        let resp = self.http_client.client.get(url).send().await?;
+        let mut attempt = 0u32;
+        loop {
+            self.http_client.acquire_rate_limit("/deployed", None).await;
+            let resp = self.http_client.client.get(url.clone()).send().await?;
 
-        if !resp.status().is_success() {
-            let text = resp.text().await?;
-            return Err(RelayError::Api(format!("get_deployed failed: {}", text)));
+            if let Some(backoff) = self.http_client.should_retry(resp.status(), attempt) {
+                attempt += 1;
+                tracing::warn!("Rate limited (429) on get_deployed, retry {} after {}ms", attempt, backoff.as_millis());
+                tokio::time::sleep(backoff).await;
+                continue;
+            }
+
+            if !resp.status().is_success() {
+                let text = resp.text().await?;
+                return Err(RelayError::Api(format!("get_deployed failed: {}", text)));
+            }
+
+            let data = resp.json::<DeployedResponse>().await?;
+            return Ok(data.deployed);
         }
-
-        let data = resp.json::<DeployedResponse>().await?;
-        Ok(data.deployed)
     }
 
     fn derive_safe_address(&self, owner: Address) -> Address {
@@ -216,29 +256,39 @@ impl RelayClient {
             nonce: u64,
         }
 
-        self.http_client
-            .acquire_rate_limit("/relay-payload", None)
-            .await;
         let url = self
             .http_client
             .base_url
             .join(&format!("relay-payload?address={}&type=PROXY", address))?;
-        let resp = self.http_client.client.get(url).send().await?;
+        let mut attempt = 0u32;
+        loop {
+            self.http_client
+                .acquire_rate_limit("/relay-payload", None)
+                .await;
+            let resp = self.http_client.client.get(url.clone()).send().await?;
 
-        if !resp.status().is_success() {
-            let text = resp.text().await?;
-            return Err(RelayError::Api(format!(
-                "get_relay_payload failed: {}",
-                text
-            )));
+            if let Some(backoff) = self.http_client.should_retry(resp.status(), attempt) {
+                attempt += 1;
+                tracing::warn!("Rate limited (429) on get_relay_payload, retry {} after {}ms", attempt, backoff.as_millis());
+                tokio::time::sleep(backoff).await;
+                continue;
+            }
+
+            if !resp.status().is_success() {
+                let text = resp.text().await?;
+                return Err(RelayError::Api(format!(
+                    "get_relay_payload failed: {}",
+                    text
+                )));
+            }
+
+            let data = resp.json::<RelayPayload>().await?;
+            let relay_address: Address = data
+                .address
+                .parse()
+                .map_err(|e| RelayError::Api(format!("Invalid relay address: {}", e)))?;
+            return Ok((relay_address, data.nonce));
         }
-
-        let data = resp.json::<RelayPayload>().await?;
-        let relay_address: Address = data
-            .address
-            .parse()
-            .map_err(|e| RelayError::Api(format!("Invalid relay address: {}", e)))?;
-        Ok((relay_address, data.nonce))
     }
 
     /// Create the proxy struct hash for signing (EIP-712 style but with specific fields)
@@ -776,73 +826,86 @@ impl RelayClient {
         endpoint: &str,
         body: &T,
     ) -> Result<RelayerTransactionResponse, RelayError> {
-        self.http_client
-            .acquire_rate_limit(&format!("/{}", endpoint), Some(&reqwest::Method::POST))
-            .await;
-
         let url = self.http_client.base_url.join(endpoint)?;
         let body_str = serde_json::to_string(body)?;
+        let path = format!("/{}", endpoint);
+        let mut attempt = 0u32;
 
-        let mut headers = if let Some(account) = &self.account {
-            if let Some(config) = account.config() {
-                config
-                    .generate_relayer_v2_headers("POST", url.path(), Some(&body_str))
-                    .map_err(RelayError::Api)?
+        loop {
+            self.http_client
+                .acquire_rate_limit(&path, Some(&reqwest::Method::POST))
+                .await;
+
+            // Generate fresh auth headers each attempt (timestamps stay current)
+            let mut headers = if let Some(account) = &self.account {
+                if let Some(config) = account.config() {
+                    config
+                        .generate_relayer_v2_headers("POST", url.path(), Some(&body_str))
+                        .map_err(RelayError::Api)?
+                } else {
+                    return Err(RelayError::Api(
+                        "Builder config missing - cannot authenticate request".to_string(),
+                    ));
+                }
             } else {
                 return Err(RelayError::Api(
-                    "Builder config missing - cannot authenticate request".to_string(),
+                    "Account missing - cannot authenticate request".to_string(),
                 ));
+            };
+
+            headers.insert(
+                reqwest::header::CONTENT_TYPE,
+                reqwest::header::HeaderValue::from_static("application/json"),
+            );
+
+            let resp = self
+                .http_client
+                .client
+                .post(url.clone())
+                .headers(headers)
+                .body(body_str.clone())
+                .send()
+                .await?;
+
+            let status = resp.status();
+            tracing::debug!("Response status for {}: {}", endpoint, status);
+
+            if let Some(backoff) = self.http_client.should_retry(status, attempt) {
+                attempt += 1;
+                tracing::warn!(
+                    "Rate limited (429) on {}, retry {} after {}ms",
+                    endpoint,
+                    attempt,
+                    backoff.as_millis()
+                );
+                tokio::time::sleep(backoff).await;
+                continue;
             }
-        } else {
-            return Err(RelayError::Api(
-                "Account missing - cannot authenticate request".to_string(),
-            ));
-        };
 
-        headers.insert(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
+            if !status.is_success() {
+                let text = resp.text().await?;
+                tracing::error!(
+                    "Request to {} failed with status {}: {}",
+                    endpoint,
+                    status,
+                    text
+                );
+                return Err(RelayError::Api(format!("Request failed: {}", text)));
+            }
 
-        let resp = self
-            .http_client
-            .client
-            .post(url.clone())
-            .headers(headers)
-            .body(body_str.clone())
-            .send()
-            .await?;
+            let response_text = resp.text().await?;
 
-        let status = resp.status();
-        tracing::debug!("Response status for {}: {}", endpoint, status);
-
-        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-            return Err(RelayError::RateLimit);
+            // Try to deserialize
+            return serde_json::from_str(&response_text).map_err(|e| {
+                tracing::error!(
+                    "Failed to decode response from {}: {}. Raw body: {}",
+                    endpoint,
+                    e,
+                    response_text
+                );
+                RelayError::SerdeJson(e)
+            });
         }
-
-        if !status.is_success() {
-            let text = resp.text().await?;
-            tracing::error!(
-                "Request to {} failed with status {}: {}",
-                endpoint,
-                status,
-                text
-            );
-            return Err(RelayError::Api(format!("Request failed: {}", text)));
-        }
-
-        let response_text = resp.text().await?;
-
-        // Try to deserialize
-        serde_json::from_str(&response_text).map_err(|e| {
-            tracing::error!(
-                "Failed to decode response from {}: {}. Raw body: {}",
-                endpoint,
-                e,
-                response_text
-            );
-            RelayError::SerdeJson(e)
-        })
     }
 }
 

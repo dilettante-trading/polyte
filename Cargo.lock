@@ -2836,6 +2836,7 @@ name = "polyoxide-core"
 version = "0.9.1"
 dependencies = [
  "base64",
+ "fastrand",
  "governor",
  "hmac",
  "reqwest",

@@ -24,4 +24,5 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 governor = { workspace = true }
+fastrand = { workspace = true }
 tokio = { workspace = true }
