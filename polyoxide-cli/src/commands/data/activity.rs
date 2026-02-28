@@ -1,9 +1,9 @@
 use clap::{Args, ValueEnum};
 use color_eyre::eyre::Result;
-use polyoxide_data::{types::ActivityType, DataApi};
+use polyoxide_data::DataApi;
 
 use super::SortOrder;
-use crate::commands::common::parsing::parse_comma_separated;
+use crate::commands::common::parsing::{parse_activity_types, parse_comma_separated};
 use crate::commands::data::trades::TradeSideFilter;
 
 #[derive(Args)]
@@ -63,18 +63,7 @@ impl UserActivityCommand {
             request = request.event_id(ids);
         }
         if let Some(types) = self.activity_type {
-            let activity_types: Vec<ActivityType> = types
-                .split(',')
-                .filter_map(|s| match s.trim().to_uppercase().as_str() {
-                    "TRADE" => Some(ActivityType::Trade),
-                    "SPLIT" => Some(ActivityType::Split),
-                    "MERGE" => Some(ActivityType::Merge),
-                    "REDEEM" => Some(ActivityType::Redeem),
-                    "REWARD" => Some(ActivityType::Reward),
-                    "CONVERSION" => Some(ActivityType::Conversion),
-                    _ => None,
-                })
-                .collect();
+            let activity_types = parse_activity_types(&types)?;
             if !activity_types.is_empty() {
                 request = request.activity_type(activity_types);
             }
