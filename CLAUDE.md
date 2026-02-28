@@ -36,6 +36,11 @@ cargo fmt --all
 
 CI runs format, clippy, test, and build in that order. Clippy uses `-D warnings` (all warnings are errors).
 
+```bash
+# Run live integration tests (hit real APIs, skipped in CI)
+cargo test -p polyoxide-clob --test live_api -- --ignored
+```
+
 ## Workspace Architecture
 
 Seven crates with this dependency graph:
@@ -77,6 +82,23 @@ POLYMARKET_API_PASSPHRASE     # L2 API passphrase
 ```
 
 Relay operations additionally need `BUILDER_API_KEY`, `BUILDER_SECRET`, `BUILDER_PASS_PHRASE`.
+
+## Testing Conventions
+
+Each crate has live integration tests in `tests/live_api.rs` gated with `#[ignore]` so CI skips them. They hit the real Polymarket APIs. Run with `-- --ignored` flag.
+
+Read-only crates (gamma, data) use `Gamma::builder().build()` / `DataApi::builder().build()` directly. CLOB tests use `Clob::public()` for unauthenticated endpoints.
+
+## Module Organization
+
+Each crate follows a consistent layout:
+- `lib.rs` — public API re-exports
+- `client.rs` — main client struct + builder
+- `error.rs` — crate-specific error enum (uses `thiserror`)
+- `types.rs` — domain types
+- `api/` — namespace modules, one file per API group (markets, orders, etc.)
+
+**WebSocket** support lives in `polyoxide-clob/src/ws/` (not core), feature-gated behind `ws` (enabled by default in polyoxide-clob). Two channels: `WebSocket::connect_market(asset_ids)` (public) and `WebSocket::connect_user(condition_ids, credentials)` (authenticated). Implements `futures_util::Stream`.
 
 ## Publishing Order
 
