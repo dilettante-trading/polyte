@@ -1,3 +1,42 @@
+## [0.9.0] - 2026-02-28
+
+### 🚀 Features
+
+- *(core)* Add per-endpoint rate limiting with configurable quotas, retry-on-429 backoff with jitter, and governor-based throttling
+
+### 🐛 Bug Fixes
+
+- *(core)* Fix rate limit quota precision, backoff jitter range, and add missing endpoint quota
+- *(core)* Carry message context in RateLimit error variant and downgrade retry log level
+- *(core)* Redact secrets from Debug impls to prevent log leakage
+- *(clob)* Use BUY/SELL strings for price endpoint side parameter
+- *(clob)* Use typed request for `get_fee_rate` with correct field and token_id
+- *(clob)* Fix tautological assertion in salt test
+- *(clob)* Reject NaN and infinity in order parameter validation
+- *(clob)* Classify service errors as Api instead of Validation
+- *(clob)* Return None on insufficient liquidity and increase salt entropy
+- *(data)* Route all HTTP calls through Request<T> for rate limiting and 429 retries
+- *(data)* Align Display impls with serde SCREAMING_SNAKE_CASE for sort enums
+- *(relay)* Replace unwraps with error propagation and compile-time address validation
+- *(cli)* Replace `process::exit` with Result-based error handling in WS credentials and completions
+- *(cli)* Reject invalid activity types with error instead of silently dropping
+
+### 🚜 Refactor
+
+- *(core)* Make `Signer::new` infallible
+
+### 🧪 Tests
+
+- *(core)* Add unit tests for Request query builder and typed request
+- *(clob)* Add unit tests for EIP-712 signing, WS types, and auth credentials
+- *(clob)* Add live integration tests for CLOB public endpoints
+- *(data)* Add unit tests for enum serialization, builders, and type serde
+- *(data)* Add live integration tests for data API public endpoints
+- *(gamma)* Add unit tests for type deserialization and client builder
+- *(relay)* Add unit tests for types serde, address derivation, signature packing, hex constants, contract config, and builder defaults
+- *(cli)* Add unit tests for argument parsing across all subcommands
+- Add live integration tests for all API endpoints
+
 ## [0.8.1] - 2026-02-26
 
 ### 🚜 Refactor
