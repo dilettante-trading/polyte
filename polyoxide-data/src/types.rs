@@ -51,12 +51,12 @@ impl std::fmt::Display for PositionSortBy {
             Self::Current => write!(f, "CURRENT"),
             Self::Initial => write!(f, "INITIAL"),
             Self::Tokens => write!(f, "TOKENS"),
-            Self::CashPnl => write!(f, "CASHPNL"),
-            Self::PercentPnl => write!(f, "PERCENTPNL"),
+            Self::CashPnl => write!(f, "CASH_PNL"),
+            Self::PercentPnl => write!(f, "PERCENT_PNL"),
             Self::Title => write!(f, "TITLE"),
             Self::Resolving => write!(f, "RESOLVING"),
             Self::Price => write!(f, "PRICE"),
-            Self::AvgPrice => write!(f, "AVGPRICE"),
+            Self::AvgPrice => write!(f, "AVG_PRICE"),
         }
     }
 }
@@ -103,10 +103,10 @@ pub enum ClosedPositionSortBy {
 impl std::fmt::Display for ClosedPositionSortBy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::RealizedPnl => write!(f, "REALIZEDPNL"),
+            Self::RealizedPnl => write!(f, "REALIZED_PNL"),
             Self::Title => write!(f, "TITLE"),
             Self::Price => write!(f, "PRICE"),
-            Self::AvgPrice => write!(f, "AVGPRICE"),
+            Self::AvgPrice => write!(f, "AVG_PRICE"),
             Self::Timestamp => write!(f, "TIMESTAMP"),
         }
     }
@@ -401,4 +401,91 @@ pub struct Position {
     pub end_date: Option<String>,
     /// Whether this is a negative risk market
     pub negative_risk: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Verify Display matches serde serialization for all PositionSortBy variants.
+    #[test]
+    fn position_sort_by_display_matches_serde() {
+        let variants = [
+            PositionSortBy::Current,
+            PositionSortBy::Initial,
+            PositionSortBy::Tokens,
+            PositionSortBy::CashPnl,
+            PositionSortBy::PercentPnl,
+            PositionSortBy::Title,
+            PositionSortBy::Resolving,
+            PositionSortBy::Price,
+            PositionSortBy::AvgPrice,
+        ];
+        for variant in variants {
+            let serialized = serde_json::to_value(variant).unwrap();
+            let display = variant.to_string();
+            assert_eq!(
+                format!("\"{}\"", display),
+                serialized.to_string(),
+                "Display mismatch for {:?}",
+                variant
+            );
+        }
+    }
+
+    /// Verify Display matches serde serialization for all ClosedPositionSortBy variants.
+    #[test]
+    fn closed_position_sort_by_display_matches_serde() {
+        let variants = [
+            ClosedPositionSortBy::RealizedPnl,
+            ClosedPositionSortBy::Title,
+            ClosedPositionSortBy::Price,
+            ClosedPositionSortBy::AvgPrice,
+            ClosedPositionSortBy::Timestamp,
+        ];
+        for variant in variants {
+            let serialized = serde_json::to_value(variant).unwrap();
+            let display = variant.to_string();
+            assert_eq!(
+                format!("\"{}\"", display),
+                serialized.to_string(),
+                "Display mismatch for {:?}",
+                variant
+            );
+        }
+    }
+
+    #[test]
+    fn activity_sort_by_display_matches_serde() {
+        let variants = [
+            ActivitySortBy::Timestamp,
+            ActivitySortBy::Tokens,
+            ActivitySortBy::Cash,
+        ];
+        for variant in variants {
+            let serialized = serde_json::to_value(variant).unwrap();
+            let display = variant.to_string();
+            assert_eq!(
+                format!("\"{}\"", display),
+                serialized.to_string(),
+                "Display mismatch for {:?}",
+                variant
+            );
+        }
+    }
+
+    #[test]
+    fn sort_direction_display_matches_serde() {
+        let variants = [SortDirection::Asc, SortDirection::Desc];
+        for variant in variants {
+            let serialized = serde_json::to_value(variant).unwrap();
+            let display = variant.to_string();
+            assert_eq!(
+                format!("\"{}\"", display),
+                serialized.to_string(),
+                "Display mismatch for {:?}",
+                variant
+            );
+        }
+    }
 }
