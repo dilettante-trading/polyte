@@ -207,12 +207,7 @@ async fn live_get_market() {
     let client = public_client();
 
     // Get a condition_id from the market list
-    let list = client
-        .markets()
-        .list()
-        .send()
-        .await
-        .expect("list markets");
+    let list = client.markets().list().send().await.expect("list markets");
     let condition_id = &list
         .data
         .first()

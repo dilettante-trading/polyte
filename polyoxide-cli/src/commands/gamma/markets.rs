@@ -412,9 +412,7 @@ mod tests {
         // -p for preset, -s for status (short flags)
         let cmd = parse(&["test", "list", "-p", "trending", "-s", "closed"]);
         match cmd {
-            MarketsCommand::List {
-                preset, status, ..
-            } => {
+            MarketsCommand::List { preset, status, .. } => {
                 assert!(matches!(preset, Some(MarketPreset::Trending)));
                 assert!(matches!(status, MarketStatus::Closed));
             }

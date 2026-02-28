@@ -963,8 +963,14 @@ mod tests {
         let config = get_contract_config(80002);
         assert!(config.is_some(), "should return config for Amoy testnet");
         let config = config.unwrap();
-        assert!(config.proxy_factory.is_none(), "proxy not supported on Amoy");
-        assert!(config.relay_hub.is_none(), "relay hub not supported on Amoy");
+        assert!(
+            config.proxy_factory.is_none(),
+            "proxy not supported on Amoy"
+        );
+        assert!(
+            config.relay_hub.is_none(),
+            "relay hub not supported on Amoy"
+        );
     }
 
     #[test]
@@ -1010,8 +1016,7 @@ mod tests {
     // ── address derivation (CREATE2) ────────────────────────────
 
     // Well-known test key: anvil/hardhat default #0
-    const TEST_KEY: &str =
-        "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+    const TEST_KEY: &str = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
     fn test_client_with_account() -> RelayClient {
         let account = crate::BuilderAccount::new(TEST_KEY, None).unwrap();
@@ -1147,7 +1152,11 @@ mod tests {
         }];
         let encoded = client.encode_proxy_transaction_data(&txns);
         // Should produce valid ABI-encoded calldata with a 4-byte function selector
-        assert!(encoded.len() >= 4, "encoded data too short: {} bytes", encoded.len());
+        assert!(
+            encoded.len() >= 4,
+            "encoded data too short: {} bytes",
+            encoded.len()
+        );
     }
 
     #[test]

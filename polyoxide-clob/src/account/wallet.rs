@@ -57,10 +57,15 @@ mod tests {
         let debug_output = format!("{:?}", wallet);
 
         // Should contain "address" field
-        assert!(debug_output.contains("address"), "Debug should show address: {}", debug_output);
+        assert!(
+            debug_output.contains("address"),
+            "Debug should show address: {}",
+            debug_output
+        );
         // Should NOT contain the private key material
         assert!(
-            !debug_output.contains("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"),
+            !debug_output
+                .contains("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"),
             "Debug should NOT contain private key: {}",
             debug_output
         );

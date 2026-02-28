@@ -220,9 +220,9 @@ pub async fn sign_clob_auth<S: AlloySigner>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::OrderSide;
     use alloy::primitives::address;
     use alloy::signers::local::PrivateKeySigner;
-    use crate::types::OrderSide;
 
     // Well-known Hardhat test private key #0 (DO NOT use in production)
     const TEST_KEY: &str = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -485,7 +485,10 @@ mod tests {
         let sig1 = sign_order(&order1, &signer, 137).await.unwrap();
         let sig2 = sign_order(&order2, &signer, 137).await.unwrap();
 
-        assert_ne!(sig1, sig2, "Different orders must produce different signatures");
+        assert_ne!(
+            sig1, sig2,
+            "Different orders must produce different signatures"
+        );
     }
 
     #[tokio::test]
@@ -529,7 +532,10 @@ mod tests {
         let sig1 = sign_clob_auth(&signer, 137, 1700000000, 42).await.unwrap();
         let sig2 = sign_clob_auth(&signer, 137, 1700000001, 42).await.unwrap();
 
-        assert_ne!(sig1, sig2, "Different timestamps must produce different signatures");
+        assert_ne!(
+            sig1, sig2,
+            "Different timestamps must produce different signatures"
+        );
     }
 
     #[tokio::test]
@@ -539,7 +545,10 @@ mod tests {
         let sig1 = sign_clob_auth(&signer, 137, 1700000000, 42).await.unwrap();
         let sig2 = sign_clob_auth(&signer, 137, 1700000000, 43).await.unwrap();
 
-        assert_ne!(sig1, sig2, "Different nonces must produce different signatures");
+        assert_ne!(
+            sig1, sig2,
+            "Different nonces must produce different signatures"
+        );
     }
 
     #[test]

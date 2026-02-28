@@ -474,7 +474,11 @@ mod tests {
     fn parse_tick_size_error_display() {
         let err = TickSize::try_from("bad").unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("bad"), "Error should contain invalid value: {}", msg);
+        assert!(
+            msg.contains("bad"),
+            "Error should contain invalid value: {}",
+            msg
+        );
         assert!(
             msg.contains("0.1"),
             "Error should list valid values: {}",

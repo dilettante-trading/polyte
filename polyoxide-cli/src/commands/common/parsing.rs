@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use color_eyre::eyre::{Result, bail};
+use color_eyre::eyre::{bail, Result};
 use polyoxide_data::types::ActivityType;
 
 /// Parse comma-separated values into a Vec of trimmed strings.
@@ -87,7 +87,11 @@ mod tests {
         let result = parse_activity_types("trade,split,merge").unwrap();
         assert_eq!(
             result,
-            vec![ActivityType::Trade, ActivityType::Split, ActivityType::Merge]
+            vec![
+                ActivityType::Trade,
+                ActivityType::Split,
+                ActivityType::Merge
+            ]
         );
     }
 
@@ -96,7 +100,11 @@ mod tests {
         let result = parse_activity_types("Trade,SPLIT,rEdEeM").unwrap();
         assert_eq!(
             result,
-            vec![ActivityType::Trade, ActivityType::Split, ActivityType::Redeem]
+            vec![
+                ActivityType::Trade,
+                ActivityType::Split,
+                ActivityType::Redeem
+            ]
         );
     }
 
@@ -110,7 +118,10 @@ mod tests {
     fn parse_activity_types_rejects_invalid() {
         let err = parse_activity_types("trade,invalid,split,typo").unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("invalid"), "error should list 'invalid': {msg}");
+        assert!(
+            msg.contains("invalid"),
+            "error should list 'invalid': {msg}"
+        );
         assert!(msg.contains("typo"), "error should list 'typo': {msg}");
     }
 
@@ -124,8 +135,7 @@ mod tests {
 
     #[test]
     fn parse_activity_types_all_variants() {
-        let result =
-            parse_activity_types("trade,split,merge,redeem,reward,conversion").unwrap();
+        let result = parse_activity_types("trade,split,merge,redeem,reward,conversion").unwrap();
         assert_eq!(result.len(), 6);
     }
 

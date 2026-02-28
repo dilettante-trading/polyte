@@ -287,10 +287,7 @@ mod tests {
 
     #[test]
     fn filter_multiple() {
-        let w = try_parse(&[
-            "test", "id", "--filter", "book", "--filter", "price",
-        ])
-        .unwrap();
+        let w = try_parse(&["test", "id", "--filter", "book", "--filter", "price"]).unwrap();
         assert_eq!(
             w.args.filter,
             vec![MarketEventType::Book, MarketEventType::Price]
@@ -300,8 +297,8 @@ mod tests {
     #[test]
     fn filter_all_types() {
         let w = try_parse(&[
-            "test", "id", "--filter", "book", "--filter", "price", "--filter", "trade",
-            "--filter", "tick",
+            "test", "id", "--filter", "book", "--filter", "price", "--filter", "trade", "--filter",
+            "tick",
         ])
         .unwrap();
         assert_eq!(w.args.filter.len(), 4);
@@ -328,10 +325,7 @@ mod tests {
     #[test]
     fn timeout_minutes() {
         let w = try_parse(&["test", "id", "--timeout", "5m"]).unwrap();
-        assert_eq!(
-            w.args.timeout.unwrap(),
-            std::time::Duration::from_secs(300)
-        );
+        assert_eq!(w.args.timeout.unwrap(), std::time::Duration::from_secs(300));
     }
 
     #[test]
@@ -367,52 +361,46 @@ mod tests {
 
     #[test]
     fn should_print_no_filters_passes_all() {
-        let channel = Channel::Market(MarketMessage::Book(
-            polyoxide_clob::ws::BookMessage {
-                event_type: "book".to_string(),
-                asset_id: "test".to_string(),
-                market: "test".to_string(),
-                bids: vec![],
-                asks: vec![],
-                hash: "test".to_string(),
-                timestamp: "0".to_string(),
-                last_trade_price: None,
-            },
-        ));
+        let channel = Channel::Market(MarketMessage::Book(polyoxide_clob::ws::BookMessage {
+            event_type: "book".to_string(),
+            asset_id: "test".to_string(),
+            market: "test".to_string(),
+            bids: vec![],
+            asks: vec![],
+            hash: "test".to_string(),
+            timestamp: "0".to_string(),
+            last_trade_price: None,
+        }));
         assert!(should_print(&channel, &[]));
     }
 
     #[test]
     fn should_print_with_matching_filter() {
-        let channel = Channel::Market(MarketMessage::Book(
-            polyoxide_clob::ws::BookMessage {
-                event_type: "book".to_string(),
-                asset_id: "test".to_string(),
-                market: "test".to_string(),
-                bids: vec![],
-                asks: vec![],
-                hash: "test".to_string(),
-                timestamp: "0".to_string(),
-                last_trade_price: None,
-            },
-        ));
+        let channel = Channel::Market(MarketMessage::Book(polyoxide_clob::ws::BookMessage {
+            event_type: "book".to_string(),
+            asset_id: "test".to_string(),
+            market: "test".to_string(),
+            bids: vec![],
+            asks: vec![],
+            hash: "test".to_string(),
+            timestamp: "0".to_string(),
+            last_trade_price: None,
+        }));
         assert!(should_print(&channel, &[MarketEventType::Book]));
     }
 
     #[test]
     fn should_print_with_non_matching_filter() {
-        let channel = Channel::Market(MarketMessage::Book(
-            polyoxide_clob::ws::BookMessage {
-                event_type: "book".to_string(),
-                asset_id: "test".to_string(),
-                market: "test".to_string(),
-                bids: vec![],
-                asks: vec![],
-                hash: "test".to_string(),
-                timestamp: "0".to_string(),
-                last_trade_price: None,
-            },
-        ));
+        let channel = Channel::Market(MarketMessage::Book(polyoxide_clob::ws::BookMessage {
+            event_type: "book".to_string(),
+            asset_id: "test".to_string(),
+            market: "test".to_string(),
+            bids: vec![],
+            asks: vec![],
+            hash: "test".to_string(),
+            timestamp: "0".to_string(),
+            last_trade_price: None,
+        }));
         // Filter asks for Price but message is Book
         assert!(!should_print(&channel, &[MarketEventType::Price]));
     }

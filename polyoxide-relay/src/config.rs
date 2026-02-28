@@ -43,7 +43,10 @@ impl std::fmt::Debug for BuilderConfig {
         f.debug_struct("BuilderConfig")
             .field("key", &"[REDACTED]")
             .field("secret", &"[REDACTED]")
-            .field("passphrase", &self.passphrase.as_ref().map(|_| "[REDACTED]"))
+            .field(
+                "passphrase",
+                &self.passphrase.as_ref().map(|_| "[REDACTED]"),
+            )
             .finish()
     }
 }
@@ -146,8 +149,16 @@ mod tests {
         let debug_output = format!("{:?}", config);
 
         assert!(debug_output.contains("[REDACTED]"));
-        assert!(!debug_output.contains("my-api-key"), "Debug leaked API key: {}", debug_output);
-        assert!(!debug_output.contains("my-secret"), "Debug leaked secret: {}", debug_output);
+        assert!(
+            !debug_output.contains("my-api-key"),
+            "Debug leaked API key: {}",
+            debug_output
+        );
+        assert!(
+            !debug_output.contains("my-secret"),
+            "Debug leaked secret: {}",
+            debug_output
+        );
         assert!(
             !debug_output.contains("my-passphrase"),
             "Debug leaked passphrase: {}",

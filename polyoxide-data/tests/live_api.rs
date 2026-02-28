@@ -194,7 +194,10 @@ async fn live_holders() {
         .send()
         .await
         .expect("trades for holders test");
-    assert!(!trades.is_empty(), "need at least one trade for holders test");
+    assert!(
+        !trades.is_empty(),
+        "need at least one trade for holders test"
+    );
 
     let condition_id = &trades[0].condition_id;
     let holders = client

@@ -525,7 +525,7 @@ mod tests {
         assert_eq!(market.id, "12345");
         assert_eq!(market.condition_id, "0xabc");
         assert!(market.tokens.is_empty()); // #[serde(default)]
-        assert!(market.tags.is_empty());   // #[serde(default)]
+        assert!(market.tags.is_empty()); // #[serde(default)]
         assert!(market.slug.is_none());
         assert!(market.volume_24hr.is_none());
     }

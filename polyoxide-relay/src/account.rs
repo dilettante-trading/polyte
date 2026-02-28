@@ -65,7 +65,10 @@ mod tests {
         let err = result.unwrap_err();
         match err {
             RelayError::Signer(msg) => {
-                assert!(msg.contains("Failed to parse private key"), "unexpected: {msg}");
+                assert!(
+                    msg.contains("Failed to parse private key"),
+                    "unexpected: {msg}"
+                );
             }
             other => panic!("Expected Signer error, got: {other:?}"),
         }

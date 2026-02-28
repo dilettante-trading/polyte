@@ -229,7 +229,10 @@ mod tests {
         }];
         // Buy: sum += price * size = 0.50 * 10 = 5.0, which is < 1000.0
         let price = calculate_market_price(&levels, 1000.0, OrderSide::Buy);
-        assert_eq!(price, None, "Should return None when liquidity is insufficient");
+        assert_eq!(
+            price, None,
+            "Should return None when liquidity is insufficient"
+        );
     }
 
     #[test]
@@ -247,7 +250,10 @@ mod tests {
         }];
         // Sell: sum += size = 10, which is < 100
         let price = calculate_market_price(&levels, 100.0, OrderSide::Sell);
-        assert_eq!(price, None, "Should return None when sell liquidity is insufficient");
+        assert_eq!(
+            price, None,
+            "Should return None when sell liquidity is insufficient"
+        );
     }
 
     #[test]

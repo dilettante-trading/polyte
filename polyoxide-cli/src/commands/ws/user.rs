@@ -296,10 +296,7 @@ mod tests {
 
     #[test]
     fn filter_multiple() {
-        let w = try_parse(&[
-            "test", "id", "--filter", "order", "--filter", "trade",
-        ])
-        .unwrap();
+        let w = try_parse(&["test", "id", "--filter", "order", "--filter", "trade"]).unwrap();
         assert_eq!(
             w.args.filter,
             vec![UserEventType::Order, UserEventType::Trade]
@@ -342,36 +339,24 @@ mod tests {
 
     #[test]
     fn get_credentials_missing_key() {
-        let err = get_credentials(
-            None,
-            Some("secret".to_string()),
-            Some("pass".to_string()),
-        )
-        .unwrap_err();
+        let err = get_credentials(None, Some("secret".to_string()), Some("pass".to_string()))
+            .unwrap_err();
         let msg = err.to_string();
         assert!(msg.contains("POLYMARKET_API_KEY"), "got: {msg}");
     }
 
     #[test]
     fn get_credentials_missing_secret() {
-        let err = get_credentials(
-            Some("key".to_string()),
-            None,
-            Some("pass".to_string()),
-        )
-        .unwrap_err();
+        let err =
+            get_credentials(Some("key".to_string()), None, Some("pass".to_string())).unwrap_err();
         let msg = err.to_string();
         assert!(msg.contains("POLYMARKET_API_SECRET"), "got: {msg}");
     }
 
     #[test]
     fn get_credentials_missing_passphrase() {
-        let err = get_credentials(
-            Some("key".to_string()),
-            Some("secret".to_string()),
-            None,
-        )
-        .unwrap_err();
+        let err =
+            get_credentials(Some("key".to_string()), Some("secret".to_string()), None).unwrap_err();
         let msg = err.to_string();
         assert!(msg.contains("POLYMARKET_API_PASSPHRASE"), "got: {msg}");
     }
@@ -387,8 +372,7 @@ mod tests {
 
     #[test]
     fn get_credentials_missing_key_and_secret() {
-        let err =
-            get_credentials(None, None, Some("pass".to_string())).unwrap_err();
+        let err = get_credentials(None, None, Some("pass".to_string())).unwrap_err();
         let msg = err.to_string();
         assert!(msg.contains("POLYMARKET_API_KEY"), "got: {msg}");
         assert!(msg.contains("POLYMARKET_API_SECRET"), "got: {msg}");
@@ -396,43 +380,39 @@ mod tests {
     }
 
     fn make_order_channel() -> Channel {
-        Channel::User(UserMessage::Order(
-            polyoxide_clob::ws::OrderMessage {
-                event_type: "order".to_string(),
-                id: "test".to_string(),
-                asset_id: "test".to_string(),
-                market: "test".to_string(),
-                outcome: "Yes".to_string(),
-                price: "0.5".to_string(),
-                side: "BUY".to_string(),
-                original_size: "10".to_string(),
-                size_matched: "0".to_string(),
-                order_type: polyoxide_clob::ws::OrderEventType::Placement,
-                order_owner: Some("0x123".to_string()),
-                timestamp: "123".to_string(),
-            },
-        ))
+        Channel::User(UserMessage::Order(polyoxide_clob::ws::OrderMessage {
+            event_type: "order".to_string(),
+            id: "test".to_string(),
+            asset_id: "test".to_string(),
+            market: "test".to_string(),
+            outcome: "Yes".to_string(),
+            price: "0.5".to_string(),
+            side: "BUY".to_string(),
+            original_size: "10".to_string(),
+            size_matched: "0".to_string(),
+            order_type: polyoxide_clob::ws::OrderEventType::Placement,
+            order_owner: Some("0x123".to_string()),
+            timestamp: "123".to_string(),
+        }))
     }
 
     fn make_trade_channel() -> Channel {
-        Channel::User(UserMessage::Trade(
-            polyoxide_clob::ws::TradeMessage {
-                event_type: "trade".to_string(),
-                id: "trade-1".to_string(),
-                asset_id: "test".to_string(),
-                market: "test".to_string(),
-                outcome: "Yes".to_string(),
-                price: "0.6".to_string(),
-                size: "5".to_string(),
-                side: "BUY".to_string(),
-                status: polyoxide_clob::ws::TradeStatus::Confirmed,
-                taker_order_id: "order-1".to_string(),
-                maker_orders: vec![],
-                owner: Some("0x123".to_string()),
-                transaction_hash: None,
-                timestamp: "456".to_string(),
-            },
-        ))
+        Channel::User(UserMessage::Trade(polyoxide_clob::ws::TradeMessage {
+            event_type: "trade".to_string(),
+            id: "trade-1".to_string(),
+            asset_id: "test".to_string(),
+            market: "test".to_string(),
+            outcome: "Yes".to_string(),
+            price: "0.6".to_string(),
+            size: "5".to_string(),
+            side: "BUY".to_string(),
+            status: polyoxide_clob::ws::TradeStatus::Confirmed,
+            taker_order_id: "order-1".to_string(),
+            maker_orders: vec![],
+            owner: Some("0x123".to_string()),
+            transaction_hash: None,
+            timestamp: "456".to_string(),
+        }))
     }
 
     #[test]
@@ -442,10 +422,7 @@ mod tests {
 
     #[test]
     fn should_print_with_matching_order_filter() {
-        assert!(should_print(
-            &make_order_channel(),
-            &[UserEventType::Order]
-        ));
+        assert!(should_print(&make_order_channel(), &[UserEventType::Order]));
     }
 
     #[test]
@@ -459,10 +436,7 @@ mod tests {
 
     #[test]
     fn should_print_trade_with_trade_filter() {
-        assert!(should_print(
-            &make_trade_channel(),
-            &[UserEventType::Trade]
-        ));
+        assert!(should_print(&make_trade_channel(), &[UserEventType::Trade]));
     }
 
     #[test]

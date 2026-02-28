@@ -513,14 +513,7 @@ mod tests {
 
     #[test]
     fn positions_list_invalid_sort_by_errors() {
-        let result = try_parse(&[
-            "test",
-            "--user",
-            "0xabc",
-            "list",
-            "--sort-by",
-            "invalid",
-        ]);
+        let result = try_parse(&["test", "--user", "0xabc", "list", "--sort-by", "invalid"]);
         assert!(result.is_err());
     }
 
@@ -579,10 +572,7 @@ mod tests {
 
     #[test]
     fn positions_activity_with_side_buy() {
-        let w = try_parse(&[
-            "test", "--user", "0xabc", "activity", "--side", "buy",
-        ])
-        .unwrap();
+        let w = try_parse(&["test", "--user", "0xabc", "activity", "--side", "buy"]).unwrap();
         match w.cmd.command {
             PositionsSubcommand::Activity { side, .. } => {
                 assert!(matches!(side.unwrap(), TradeSideFilter::Buy));

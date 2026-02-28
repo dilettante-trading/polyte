@@ -122,38 +122,31 @@ mod tests {
 
     #[test]
     fn leaderboard_custom_time_period_week() {
-        let parsed =
-            TestLeaderboard::try_parse_from(["test", "--time-period", "week"]).unwrap();
+        let parsed = TestLeaderboard::try_parse_from(["test", "--time-period", "week"]).unwrap();
         assert!(matches!(parsed.cmd.time_period, CliTimePeriod::Week));
     }
 
     #[test]
     fn leaderboard_custom_time_period_month() {
-        let parsed =
-            TestLeaderboard::try_parse_from(["test", "--time-period", "month"]).unwrap();
+        let parsed = TestLeaderboard::try_parse_from(["test", "--time-period", "month"]).unwrap();
         assert!(matches!(parsed.cmd.time_period, CliTimePeriod::Month));
     }
 
     #[test]
     fn leaderboard_custom_time_period_all() {
-        let parsed =
-            TestLeaderboard::try_parse_from(["test", "--time-period", "all"]).unwrap();
+        let parsed = TestLeaderboard::try_parse_from(["test", "--time-period", "all"]).unwrap();
         assert!(matches!(parsed.cmd.time_period, CliTimePeriod::All));
     }
 
     #[test]
     fn leaderboard_invalid_time_period_errors() {
-        let result =
-            TestLeaderboard::try_parse_from(["test", "--time-period", "year"]);
+        let result = TestLeaderboard::try_parse_from(["test", "--time-period", "year"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn leaderboard_custom_limit_and_offset() {
-        let parsed = TestLeaderboard::try_parse_from([
-            "test", "-l", "10", "-o", "50",
-        ])
-        .unwrap();
+        let parsed = TestLeaderboard::try_parse_from(["test", "-l", "10", "-o", "50"]).unwrap();
         assert_eq!(parsed.cmd.limit, 10);
         assert_eq!(parsed.cmd.offset, 50);
     }
@@ -166,9 +159,21 @@ mod tests {
 
     #[test]
     fn time_period_from_conversions() {
-        assert!(matches!(TimePeriod::from(CliTimePeriod::Day), TimePeriod::Day));
-        assert!(matches!(TimePeriod::from(CliTimePeriod::Week), TimePeriod::Week));
-        assert!(matches!(TimePeriod::from(CliTimePeriod::Month), TimePeriod::Month));
-        assert!(matches!(TimePeriod::from(CliTimePeriod::All), TimePeriod::All));
+        assert!(matches!(
+            TimePeriod::from(CliTimePeriod::Day),
+            TimePeriod::Day
+        ));
+        assert!(matches!(
+            TimePeriod::from(CliTimePeriod::Week),
+            TimePeriod::Week
+        ));
+        assert!(matches!(
+            TimePeriod::from(CliTimePeriod::Month),
+            TimePeriod::Month
+        ));
+        assert!(matches!(
+            TimePeriod::from(CliTimePeriod::All),
+            TimePeriod::All
+        ));
     }
 }

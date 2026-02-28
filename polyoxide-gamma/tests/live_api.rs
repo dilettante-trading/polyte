@@ -105,14 +105,12 @@ async fn live_list_markets_closed_true() {
         .send()
         .await
         .expect("list closed markets");
-    assert!(!markets.is_empty(), "should return at least one closed market");
+    assert!(
+        !markets.is_empty(),
+        "should return at least one closed market"
+    );
     for m in &markets {
-        assert_eq!(
-            m.closed,
-            Some(true),
-            "market {} should be closed",
-            m.id
-        );
+        assert_eq!(m.closed, Some(true), "market {} should be closed", m.id);
     }
 }
 
@@ -133,12 +131,7 @@ async fn live_list_markets_closed_false() {
         "should return at least one open market"
     );
     for m in &markets {
-        assert_ne!(
-            m.closed,
-            Some(true),
-            "market {} should not be closed",
-            m.id
-        );
+        assert_ne!(m.closed, Some(true), "market {} should not be closed", m.id);
     }
 }
 
@@ -237,12 +230,7 @@ async fn live_get_tag_by_id() {
     let first = tags.first().expect("need at least one tag");
     let id = first.id.clone();
 
-    let tag = gamma
-        .tags()
-        .get(&id)
-        .send()
-        .await
-        .expect("get tag by id");
+    let tag = gamma.tags().get(&id).send().await.expect("get tag by id");
     assert_eq!(tag.id, id);
 }
 
@@ -337,12 +325,7 @@ async fn live_get_series_by_id() {
 #[ignore]
 async fn live_list_sports() {
     let gamma = client();
-    let sports = gamma
-        .sports()
-        .list()
-        .send()
-        .await
-        .expect("list sports");
+    let sports = gamma.sports().list().send().await.expect("list sports");
     assert!(
         !sports.is_empty(),
         "should return at least one sport metadata entry"
