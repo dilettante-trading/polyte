@@ -124,7 +124,7 @@ impl Clob {
         let (neg_risk, tick_size) = self.get_market_metadata(&params.token_id, options).await?;
 
         // Get fee rate
-        let fee_rate_bps = self.get_fee_rate().await?;
+        let fee_rate_bps = self.get_fee_rate(&params.token_id).await?;
 
         // Calculate amounts
         let (maker_amount, taker_amount) =
@@ -206,7 +206,7 @@ impl Clob {
         };
 
         // Get fee rate
-        let fee_rate_bps = self.get_fee_rate().await?;
+        let fee_rate_bps = self.get_fee_rate(&params.token_id).await?;
 
         // Calculate amounts
         let (maker_amount, taker_amount) =
@@ -277,23 +277,10 @@ impl Clob {
         Ok((neg_risk, tick_size))
     }
 
-    /// Fetch the current fee rate from the API
-    async fn get_fee_rate(&self) -> Result<String, ClobError> {
-        self.http_client.acquire_rate_limit("/fee-rate", None).await;
-
-        let fee_rate_response: serde_json::Value = self
-            .http_client
-            .client
-            .get(self.http_client.base_url.join("/fee-rate")?)
-            .send()
-            .await?
-            .json()
-            .await?;
-
-        Ok(fee_rate_response["feeRateBps"]
-            .as_str()
-            .unwrap_or("0")
-            .to_string())
+    /// Fetch the current fee rate for a token from the API
+    async fn get_fee_rate(&self, token_id: &str) -> Result<String, ClobError> {
+        let resp = self.markets().fee_rate(token_id).send().await?;
+        Ok(resp.base_fee.to_string())
     }
 
     /// Resolve the maker address based on funder and signature type

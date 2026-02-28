@@ -104,6 +104,17 @@ impl Markets {
         .query("token_id", token_id.into())
     }
 
+    /// Get the current fee rate for a token
+    pub fn fee_rate(&self, token_id: impl Into<String>) -> Request<FeeRateResponse> {
+        Request::get(
+            self.http_client.clone(),
+            "/fee-rate",
+            AuthMode::None,
+            self.chain_id,
+        )
+        .query("token_id", token_id.into())
+    }
+
     /// Get tick size for a token
     pub fn tick_size(&self, token_id: impl Into<String>) -> Request<TickSizeResponse> {
         Request::get(
@@ -208,6 +219,12 @@ pub struct NegRiskResponse {
     pub neg_risk: bool,
 }
 
+/// Response from the fee-rate endpoint
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeeRateResponse {
+    pub base_fee: u32,
+}
+
 /// Response from the tick-size endpoint
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TickSizeResponse {
@@ -227,5 +244,38 @@ where
         _ => Err(serde::de::Error::custom(
             "expected string or number for tick size",
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fee_rate_response_deserializes() {
+        let json = r#"{"base_fee": 100}"#;
+        let resp: FeeRateResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.base_fee, 100);
+    }
+
+    #[test]
+    fn test_fee_rate_response_deserializes_zero() {
+        let json = r#"{"base_fee": 0}"#;
+        let resp: FeeRateResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.base_fee, 0);
+    }
+
+    #[test]
+    fn test_fee_rate_response_rejects_missing_field() {
+        let json = r#"{"feeRate": "100"}"#;
+        let result = serde_json::from_str::<FeeRateResponse>(json);
+        assert!(result.is_err(), "Should reject JSON missing base_fee field");
+    }
+
+    #[test]
+    fn test_fee_rate_response_rejects_empty_json() {
+        let json = r#"{}"#;
+        let result = serde_json::from_str::<FeeRateResponse>(json);
+        assert!(result.is_err(), "Should reject empty JSON object");
     }
 }
