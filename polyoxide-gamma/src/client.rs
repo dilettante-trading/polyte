@@ -137,3 +137,65 @@ impl Default for GammaBuilder {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_builder_default() {
+        let builder = GammaBuilder::default();
+        assert_eq!(builder.base_url, DEFAULT_BASE_URL);
+        assert_eq!(builder.timeout_ms, DEFAULT_TIMEOUT_MS);
+        assert_eq!(builder.pool_size, DEFAULT_POOL_SIZE);
+    }
+
+    #[test]
+    fn test_builder_custom_url() {
+        let builder = GammaBuilder::new().base_url("https://custom.api.com");
+        assert_eq!(builder.base_url, "https://custom.api.com");
+    }
+
+    #[test]
+    fn test_builder_custom_timeout() {
+        let builder = GammaBuilder::new().timeout_ms(60_000);
+        assert_eq!(builder.timeout_ms, 60_000);
+    }
+
+    #[test]
+    fn test_builder_custom_pool_size() {
+        let builder = GammaBuilder::new().pool_size(20);
+        assert_eq!(builder.pool_size, 20);
+    }
+
+    #[test]
+    fn test_builder_build_success() {
+        let gamma = Gamma::builder().build();
+        assert!(gamma.is_ok());
+    }
+
+    #[test]
+    fn test_builder_invalid_url() {
+        let result = Gamma::builder().base_url("://bad").build();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_new_creates_client() {
+        let gamma = Gamma::new();
+        assert!(gamma.is_ok());
+    }
+
+    #[test]
+    fn test_client_namespaces_accessible() {
+        let gamma = Gamma::new().unwrap();
+        let _markets = gamma.markets();
+        let _events = gamma.events();
+        let _series = gamma.series();
+        let _tags = gamma.tags();
+        let _sports = gamma.sports();
+        let _comments = gamma.comments();
+        let _user = gamma.user();
+        let _health = gamma.health();
+    }
+}

@@ -221,3 +221,69 @@ impl ListMarkets {
         self.request.send().await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Gamma;
+
+    fn gamma() -> Gamma {
+        Gamma::new().unwrap()
+    }
+
+    /// Verify that all builder methods chain correctly (compile-time type check)
+    /// and produce a valid builder ready to send.
+    #[test]
+    fn test_list_markets_full_chain() {
+        // This test verifies that every builder method returns Self and chains
+        let _list = gamma()
+            .markets()
+            .list()
+            .limit(25)
+            .offset(50)
+            .order("volume")
+            .ascending(false)
+            .id(vec![1i64, 2, 3])
+            .slug(vec!["slug-a"])
+            .clob_token_ids(vec!["token-1"])
+            .condition_ids(vec!["cond-1"])
+            .market_maker_address(vec!["0xaddr"])
+            .liquidity_num_min(1000.0)
+            .liquidity_num_max(50000.0)
+            .volume_num_min(100.0)
+            .volume_num_max(10000.0)
+            .start_date_min("2024-01-01")
+            .start_date_max("2025-01-01")
+            .end_date_min("2024-06-01")
+            .end_date_max("2025-12-31")
+            .tag_id(42)
+            .related_tags(true)
+            .cyom(false)
+            .uma_resolution_status("resolved")
+            .game_id("game-1")
+            .sports_market_types(vec!["moneyline"])
+            .rewards_min_size(10.0)
+            .question_ids(vec!["q1"])
+            .include_tag(true)
+            .closed(false)
+            .archived(false);
+    }
+
+    #[test]
+    fn test_open_and_closed_are_inverse() {
+        // Both should compile and produce a valid builder
+        let _open = gamma().markets().list().open(true);
+        let _closed = gamma().markets().list().closed(false);
+    }
+
+    #[test]
+    fn test_get_market_accepts_string_and_str() {
+        let _req1 = gamma().markets().get("12345");
+        let _req2 = gamma().markets().get(String::from("12345"));
+    }
+
+    #[test]
+    fn test_get_by_slug_accepts_string_and_str() {
+        let _req1 = gamma().markets().get_by_slug("my-slug");
+        let _req2 = gamma().markets().get_by_slug(String::from("my-slug"));
+    }
+}

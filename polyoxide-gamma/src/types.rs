@@ -449,3 +449,414 @@ pub struct PaginatedResponse<T> {
     pub data: Vec<T>,
     pub next_cursor: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── MarketToken ─────────────────────────────────────────────
+
+    #[test]
+    fn test_market_token_deserialization() {
+        let json = r#"{
+            "tokenId": "71321045679252212594626385532706912750332728571942532289631379312455583992563",
+            "outcome": "Yes",
+            "price": "0.55",
+            "winner": false
+        }"#;
+        let token: MarketToken = serde_json::from_str(json).unwrap();
+        assert_eq!(token.outcome, "Yes");
+        assert_eq!(token.price.as_deref(), Some("0.55"));
+        assert_eq!(token.winner, Some(false));
+    }
+
+    #[test]
+    fn test_market_token_optional_fields() {
+        let json = r#"{"tokenId": "123", "outcome": "No"}"#;
+        let token: MarketToken = serde_json::from_str(json).unwrap();
+        assert!(token.price.is_none());
+        assert!(token.winner.is_none());
+    }
+
+    // ── Tag ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_tag_deserialization() {
+        let json = r#"{
+            "id": "42",
+            "slug": "politics",
+            "label": "Politics",
+            "forceShow": true,
+            "publishedAt": "2024-01-01T00:00:00Z",
+            "createdBy": 1,
+            "updatedBy": 2,
+            "createdAt": "2024-01-01T00:00:00Z",
+            "updatedAt": "2024-06-01T00:00:00Z",
+            "forceHide": false,
+            "isCarousel": true
+        }"#;
+        let tag: Tag = serde_json::from_str(json).unwrap();
+        assert_eq!(tag.slug, "politics");
+        assert_eq!(tag.force_show, Some(true));
+        assert_eq!(tag.is_carousel, Some(true));
+    }
+
+    #[test]
+    fn test_tag_minimal() {
+        let json = r#"{"id": "1", "slug": "test", "label": "Test"}"#;
+        let tag: Tag = serde_json::from_str(json).unwrap();
+        assert_eq!(tag.label, "Test");
+        assert!(tag.force_show.is_none());
+        assert!(tag.created_by.is_none());
+    }
+
+    // ── Market ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_market_minimal_deserialization() {
+        let json = r#"{
+            "id": "12345",
+            "conditionId": "0xabc",
+            "description": "Will X happen?",
+            "question": "Will X happen by end of 2025?",
+            "marketMakerAddress": "0x1234567890abcdef"
+        }"#;
+        let market: Market = serde_json::from_str(json).unwrap();
+        assert_eq!(market.id, "12345");
+        assert_eq!(market.condition_id, "0xabc");
+        assert!(market.tokens.is_empty()); // #[serde(default)]
+        assert!(market.tags.is_empty());   // #[serde(default)]
+        assert!(market.slug.is_none());
+        assert!(market.volume_24hr.is_none());
+    }
+
+    #[test]
+    fn test_market_with_tokens() {
+        let json = r#"{
+            "id": "1",
+            "conditionId": "0xcond",
+            "description": "Test",
+            "question": "Test?",
+            "marketMakerAddress": "0xaddr",
+            "tokens": [
+                {"tokenId": "t1", "outcome": "Yes", "price": "0.7", "winner": true},
+                {"tokenId": "t2", "outcome": "No", "price": "0.3", "winner": false}
+            ]
+        }"#;
+        let market: Market = serde_json::from_str(json).unwrap();
+        assert_eq!(market.tokens.len(), 2);
+        assert_eq!(market.tokens[0].outcome, "Yes");
+        assert_eq!(market.tokens[1].price.as_deref(), Some("0.3"));
+    }
+
+    #[test]
+    fn test_market_volume_fields() {
+        let json = r#"{
+            "id": "1",
+            "conditionId": "0xcond",
+            "description": "Test",
+            "question": "Test?",
+            "marketMakerAddress": "0xaddr",
+            "volume24hr": 1500.5,
+            "volume1wk": 10000.0,
+            "volume1mo": 50000.0,
+            "volume1yr": 200000.0,
+            "volume24hrAmm": 100.0,
+            "volume1wkClob": 9900.0
+        }"#;
+        let market: Market = serde_json::from_str(json).unwrap();
+        assert_eq!(market.volume_24hr, Some(1500.5));
+        assert_eq!(market.volume_1wk, Some(10000.0));
+        assert_eq!(market.volume_24hr_amm, Some(100.0));
+        assert_eq!(market.volume_1wk_clob, Some(9900.0));
+    }
+
+    #[test]
+    fn test_market_denomination_token_rename() {
+        // API field is "denomationToken" (typo in Polymarket API)
+        let json = r#"{
+            "id": "1",
+            "conditionId": "0xcond",
+            "description": "Test",
+            "question": "Test?",
+            "marketMakerAddress": "0xaddr",
+            "denomationToken": "USDC"
+        }"#;
+        let market: Market = serde_json::from_str(json).unwrap();
+        assert_eq!(market.denomination_token.as_deref(), Some("USDC"));
+    }
+
+    #[test]
+    fn test_market_rewards_as_map() {
+        let json = r#"{
+            "id": "1",
+            "conditionId": "0xcond",
+            "description": "Test",
+            "question": "Test?",
+            "marketMakerAddress": "0xaddr",
+            "rewards": {"min_size": "100", "max_spread": "0.05"}
+        }"#;
+        let market: Market = serde_json::from_str(json).unwrap();
+        assert!(market.rewards.is_some());
+        let rewards = market.rewards.unwrap();
+        assert_eq!(rewards["min_size"], "100");
+    }
+
+    #[test]
+    fn test_market_null_rewards() {
+        let json = r#"{
+            "id": "1",
+            "conditionId": "0xcond",
+            "description": "Test",
+            "question": "Test?",
+            "marketMakerAddress": "0xaddr",
+            "rewards": null
+        }"#;
+        let market: Market = serde_json::from_str(json).unwrap();
+        assert!(market.rewards.is_none());
+    }
+
+    // ── Event ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_event_minimal() {
+        let json = r#"{"id": "evt-1"}"#;
+        let event: Event = serde_json::from_str(json).unwrap();
+        assert_eq!(event.id, "evt-1");
+        assert!(event.markets.is_empty()); // #[serde(default)]
+        assert!(event.tags.is_empty());
+        assert!(event.series.is_empty());
+        assert!(event.sub_events.is_empty());
+    }
+
+    #[test]
+    fn test_event_with_nested_markets() {
+        let json = r#"{
+            "id": "evt-1",
+            "title": "2025 Election",
+            "markets": [
+                {
+                    "id": "mkt-1",
+                    "conditionId": "0xabc",
+                    "description": "Who wins?",
+                    "question": "Who wins the election?",
+                    "marketMakerAddress": "0xaddr"
+                }
+            ]
+        }"#;
+        let event: Event = serde_json::from_str(json).unwrap();
+        assert_eq!(event.markets.len(), 1);
+        assert_eq!(event.markets[0].id, "mkt-1");
+    }
+
+    #[test]
+    fn test_event_volume_24h_rename() {
+        // Events use "volume24h" not "volume24hr"
+        let json = r#"{
+            "id": "evt-1",
+            "volume24h": 5000.0
+        }"#;
+        let event: Event = serde_json::from_str(json).unwrap();
+        assert_eq!(event.volume_24hr, Some(5000.0));
+    }
+
+    #[test]
+    fn test_event_enable_neg_risk_typo_rename() {
+        // API has typo: "enalbeNegRisk"
+        let json = r#"{
+            "id": "evt-1",
+            "enalbeNegRisk": true
+        }"#;
+        let event: Event = serde_json::from_str(json).unwrap();
+        assert_eq!(event.enable_neg_risk, Some(true));
+    }
+
+    // ── SeriesInfo ──────────────────────────────────────────────
+
+    #[test]
+    fn test_series_info() {
+        let json = r#"{"id": "s1", "slug": "nfl-2025", "title": "NFL 2025"}"#;
+        let si: SeriesInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(si.slug, "nfl-2025");
+        assert_eq!(si.title, "NFL 2025");
+    }
+
+    // ── SeriesData ──────────────────────────────────────────────
+
+    #[test]
+    fn test_series_data_minimal() {
+        let json = r#"{
+            "id": "s1",
+            "slug": "nfl",
+            "title": "NFL",
+            "active": true,
+            "closed": false,
+            "archived": false
+        }"#;
+        let sd: SeriesData = serde_json::from_str(json).unwrap();
+        assert!(sd.active);
+        assert!(!sd.closed);
+        assert!(sd.events.is_empty()); // #[serde(default)]
+        assert!(sd.tags.is_empty());
+    }
+
+    // ── SportMetadata ───────────────────────────────────────────
+
+    #[test]
+    fn test_sport_metadata() {
+        let json = r#"{
+            "id": 1,
+            "sport": "Basketball",
+            "image": "https://example.com/nba.png",
+            "createdAt": "2024-01-01T00:00:00Z"
+        }"#;
+        let sm: SportMetadata = serde_json::from_str(json).unwrap();
+        assert_eq!(sm.id, 1);
+        assert_eq!(sm.sport, "Basketball");
+    }
+
+    // ── Team ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_team() {
+        let json = r#"{
+            "id": 42,
+            "name": "Lakers",
+            "league": "NBA",
+            "abbreviation": "LAL",
+            "createdAt": "2024-01-01T00:00:00Z",
+            "updatedAt": "2024-06-15T12:00:00Z"
+        }"#;
+        let team: Team = serde_json::from_str(json).unwrap();
+        assert_eq!(team.id, 42);
+        assert_eq!(team.name.as_deref(), Some("Lakers"));
+        assert!(team.created_at.is_some());
+    }
+
+    // ── Comment ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_comment_deserialization() {
+        let json = r#"{
+            "id": "c1",
+            "body": "I think this market will resolve yes.",
+            "createdAt": "2024-06-01T10:00:00Z",
+            "updatedAt": "2024-06-01T10:00:00Z",
+            "deletedAt": null,
+            "user": {"id": "u1", "name": "trader1", "avatar": null},
+            "marketId": "mkt-1",
+            "eventId": null,
+            "seriesId": null,
+            "parentId": null,
+            "reactions": [],
+            "positions": [
+                {"tokenId": "t1", "outcome": "Yes", "shares": "100.5"}
+            ],
+            "likeCount": 5,
+            "dislikeCount": 1,
+            "replyCount": 3
+        }"#;
+        let comment: Comment = serde_json::from_str(json).unwrap();
+        assert_eq!(comment.id, "c1");
+        assert_eq!(comment.user.name, "trader1");
+        assert_eq!(comment.like_count, 5);
+        assert_eq!(comment.positions.len(), 1);
+        assert_eq!(comment.positions[0].shares, "100.5");
+        assert!(comment.deleted_at.is_none());
+    }
+
+    // ── UserResponse ────────────────────────────────────────────
+
+    #[test]
+    fn test_user_response() {
+        let json = r#"{
+            "proxyWallet": "0xproxy",
+            "address": "0xsigner",
+            "id": "u1",
+            "name": "polytrader"
+        }"#;
+        let user: crate::api::user::UserResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(user.proxy.as_deref(), Some("0xproxy"));
+        assert_eq!(user.name.as_deref(), Some("polytrader"));
+    }
+
+    #[test]
+    fn test_user_response_all_null() {
+        let json = r#"{}"#;
+        let user: crate::api::user::UserResponse = serde_json::from_str(json).unwrap();
+        assert!(user.proxy.is_none());
+        assert!(user.address.is_none());
+        assert!(user.id.is_none());
+        assert!(user.name.is_none());
+    }
+
+    // ── Cursor / PaginatedResponse ──────────────────────────────
+
+    #[test]
+    fn test_cursor_with_next() {
+        let json = r#"{"nextCursor": "abc123"}"#;
+        let cursor: Cursor = serde_json::from_str(json).unwrap();
+        assert_eq!(cursor.next_cursor.as_deref(), Some("abc123"));
+    }
+
+    #[test]
+    fn test_cursor_without_next() {
+        let json = r#"{"nextCursor": null}"#;
+        let cursor: Cursor = serde_json::from_str(json).unwrap();
+        assert!(cursor.next_cursor.is_none());
+    }
+
+    #[test]
+    fn test_paginated_response() {
+        let json = r#"{
+            "data": [{"tokenId": "t1", "outcome": "Yes"}],
+            "nextCursor": "page2"
+        }"#;
+        let resp: PaginatedResponse<MarketToken> = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.data.len(), 1);
+        assert_eq!(resp.next_cursor.as_deref(), Some("page2"));
+    }
+
+    #[test]
+    fn test_paginated_response_empty() {
+        let json = r#"{"data": [], "nextCursor": null}"#;
+        let resp: PaginatedResponse<MarketToken> = serde_json::from_str(json).unwrap();
+        assert!(resp.data.is_empty());
+        assert!(resp.next_cursor.is_none());
+    }
+
+    // ── Serialization round-trip ────────────────────────────────
+
+    #[test]
+    fn test_market_token_roundtrip() {
+        let token = MarketToken {
+            token_id: "123".into(),
+            outcome: "Yes".into(),
+            price: Some("0.75".into()),
+            winner: Some(true),
+        };
+        let json = serde_json::to_string(&token).unwrap();
+        let back: MarketToken = serde_json::from_str(&json).unwrap();
+        assert_eq!(token, back);
+    }
+
+    #[test]
+    fn test_tag_roundtrip() {
+        let tag = Tag {
+            id: "1".into(),
+            slug: "test".into(),
+            label: "Test".into(),
+            force_show: None,
+            published_at: None,
+            created_by: None,
+            updated_by: None,
+            created_at: None,
+            updated_at: None,
+            force_hide: None,
+            is_carousel: None,
+        };
+        let json = serde_json::to_string(&tag).unwrap();
+        let back: Tag = serde_json::from_str(&json).unwrap();
+        assert_eq!(tag, back);
+    }
+}

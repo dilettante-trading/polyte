@@ -208,3 +208,64 @@ impl ListEvents {
         self.request.send().await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Gamma;
+
+    fn gamma() -> Gamma {
+        Gamma::new().unwrap()
+    }
+
+    /// Verify that all event builder methods chain correctly
+    #[test]
+    fn test_list_events_full_chain() {
+        let _list = gamma()
+            .events()
+            .list()
+            .limit(10)
+            .offset(20)
+            .order("volume")
+            .ascending(true)
+            .id(vec![1i64, 2])
+            .tag_id(42)
+            .exclude_tag_id(vec![99i64])
+            .slug(vec!["slug-a"])
+            .tag_slug("politics")
+            .related_tags(true)
+            .active(true)
+            .archived(false)
+            .featured(true)
+            .cyom(false)
+            .include_chat(true)
+            .include_template(false)
+            .recurrence("daily")
+            .closed(false)
+            .liquidity_min(1000.0)
+            .liquidity_max(50000.0)
+            .volume_min(100.0)
+            .volume_max(10000.0)
+            .start_date_min("2024-01-01")
+            .start_date_max("2025-01-01")
+            .end_date_min("2024-06-01")
+            .end_date_max("2025-12-31");
+    }
+
+    #[test]
+    fn test_get_event_accepts_str_and_string() {
+        let _req1 = gamma().events().get("evt-123");
+        let _req2 = gamma().events().get(String::from("evt-123"));
+    }
+
+    #[test]
+    fn test_get_by_slug_accepts_str_and_string() {
+        let _req1 = gamma().events().get_by_slug("slug");
+        let _req2 = gamma().events().get_by_slug(String::from("slug"));
+    }
+
+    #[test]
+    fn test_get_related_by_slug_accepts_str_and_string() {
+        let _req1 = gamma().events().get_related_by_slug("slug");
+        let _req2 = gamma().events().get_related_by_slug(String::from("slug"));
+    }
+}
