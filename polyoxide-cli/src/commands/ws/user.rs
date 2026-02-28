@@ -69,7 +69,7 @@ pub enum OutputFormat {
 }
 
 pub async fn run(args: UserArgs) -> Result<()> {
-    let credentials = get_credentials(args.api_key, args.api_secret, args.api_passphrase);
+    let credentials = get_credentials(args.api_key, args.api_secret, args.api_passphrase)?;
 
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
@@ -151,9 +151,11 @@ fn get_credentials(
     api_key: Option<String>,
     api_secret: Option<String>,
     api_passphrase: Option<String>,
-) -> ApiCredentials {
+) -> Result<ApiCredentials> {
     match (api_key, api_secret, api_passphrase) {
-        (Some(key), Some(secret), Some(passphrase)) => ApiCredentials::new(key, secret, passphrase),
+        (Some(key), Some(secret), Some(passphrase)) => {
+            Ok(ApiCredentials::new(key, secret, passphrase))
+        }
         (key, secret, passphrase) => {
             let mut missing = Vec::new();
             if key.is_none() {
@@ -165,11 +167,14 @@ fn get_credentials(
             if passphrase.is_none() {
                 missing.push("--api-passphrase / POLYMARKET_API_PASSPHRASE");
             }
-            eprintln!("Error: Missing required credentials:\n");
-            for m in &missing {
-                eprintln!("  - {}", m);
-            }
-            std::process::exit(1);
+            let list = missing
+                .iter()
+                .map(|m| format!("  - {}", m))
+                .collect::<Vec<_>>()
+                .join("\n");
+            Err(color_eyre::eyre::eyre!(
+                "Missing required credentials:\n\n{list}"
+            ))
         }
     }
 }

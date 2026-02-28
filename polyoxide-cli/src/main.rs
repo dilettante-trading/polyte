@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
         Commands::Data { command } => command.run().await?,
         Commands::Gamma { command } => command.run().await?,
         Commands::Ws { command } => command.run().await?,
-        Commands::Completions(cmd) => cmd.run::<Cli>(),
+        Commands::Completions(cmd) => cmd.run::<Cli>()?,
     }
 
     Ok(())
