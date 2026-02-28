@@ -175,3 +175,151 @@ impl<T> Default for TypedRequest<T> {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::HttpClientBuilder;
+
+    // ── QueryBuilder via Request<T, E> ──────────────────────────
+
+    /// Helper to build a Request and extract its query pairs for assertions.
+    fn make_request() -> Request<(), ApiError> {
+        let http = HttpClientBuilder::new("https://example.com")
+            .build()
+            .unwrap();
+        Request::new(http, "/test")
+    }
+
+    #[test]
+    fn test_query_adds_key_value() {
+        let req = make_request().query("limit", 10);
+        assert_eq!(req.query, vec![("limit".into(), "10".into())]);
+    }
+
+    #[test]
+    fn test_query_chaining_preserves_order() {
+        let req = make_request()
+            .query("limit", 10)
+            .query("offset", "abc")
+            .query("active", true);
+        assert_eq!(
+            req.query,
+            vec![
+                ("limit".into(), "10".into()),
+                ("offset".into(), "abc".into()),
+                ("active".into(), "true".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_query_opt_some_adds_parameter() {
+        let req = make_request().query_opt("tag", Some("politics"));
+        assert_eq!(req.query, vec![("tag".into(), "politics".into())]);
+    }
+
+    #[test]
+    fn test_query_opt_none_skips_parameter() {
+        let req = make_request().query_opt("tag", None::<&str>);
+        assert!(req.query.is_empty());
+    }
+
+    #[test]
+    fn test_query_opt_interleaved_with_query() {
+        let req = make_request()
+            .query("limit", 25)
+            .query_opt("cursor", None::<String>)
+            .query("active", true)
+            .query_opt("slug", Some("will-x-happen"));
+
+        assert_eq!(
+            req.query,
+            vec![
+                ("limit".into(), "25".into()),
+                ("active".into(), "true".into()),
+                ("slug".into(), "will-x-happen".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_query_many_adds_repeated_key() {
+        let req = make_request().query_many("id", vec!["abc", "def", "ghi"]);
+        assert_eq!(
+            req.query,
+            vec![
+                ("id".into(), "abc".into()),
+                ("id".into(), "def".into()),
+                ("id".into(), "ghi".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_query_many_empty_iterator() {
+        let req = make_request().query_many("id", Vec::<String>::new());
+        assert!(req.query.is_empty());
+    }
+
+    #[test]
+    fn test_query_many_opt_some_adds_values() {
+        let ids = vec![1u64, 2, 3];
+        let req = make_request().query_many_opt("id", Some(ids));
+        assert_eq!(
+            req.query,
+            vec![
+                ("id".into(), "1".into()),
+                ("id".into(), "2".into()),
+                ("id".into(), "3".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_query_many_opt_none_skips() {
+        let req = make_request().query_many_opt("id", None::<Vec<String>>);
+        assert!(req.query.is_empty());
+    }
+
+    #[test]
+    fn test_query_duplicate_keys_allowed() {
+        let req = make_request()
+            .query("sort", "price")
+            .query("sort", "volume");
+        assert_eq!(
+            req.query,
+            vec![
+                ("sort".into(), "price".into()),
+                ("sort".into(), "volume".into()),
+            ]
+        );
+    }
+
+    // ── Request::new ────────────────────────────────────────────
+
+    #[test]
+    fn test_request_new_stores_path() {
+        let req = make_request();
+        assert_eq!(req.path, "/test");
+        assert!(req.query.is_empty());
+    }
+
+    #[test]
+    fn test_request_new_with_string_path() {
+        let http = HttpClientBuilder::new("https://example.com")
+            .build()
+            .unwrap();
+        let req: Request<(), ApiError> = Request::new(http, String::from("/events"));
+        assert_eq!(req.path, "/events");
+    }
+
+    // ── TypedRequest ────────────────────────────────────────────
+
+    #[test]
+    fn test_typed_request_new_and_default() {
+        let _t1: TypedRequest<String> = TypedRequest::new();
+        let _t2: TypedRequest<String> = TypedRequest::default();
+        // Both should compile and create distinct instances — no state to verify
+    }
+}
