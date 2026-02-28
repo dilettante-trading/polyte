@@ -1,4 +1,4 @@
-use polyoxide_core::{HttpClient, RequestError};
+use polyoxide_core::{HttpClient, QueryBuilder, Request};
 use serde::{Deserialize, Serialize};
 
 use crate::error::DataApiError;
@@ -12,22 +12,10 @@ pub struct LiveVolumeApi {
 impl LiveVolumeApi {
     /// Get live volume for an event
     pub async fn get(&self, event_id: u64) -> Result<Vec<LiveVolume>, DataApiError> {
-        let url = self.http_client.base_url.join("/live-volume")?;
-        let response = self
-            .http_client
-            .client
-            .get(url)
-            .query(&[("id", event_id)])
+        Request::<Vec<LiveVolume>, DataApiError>::new(self.http_client.clone(), "/live-volume")
+            .query("id", event_id)
             .send()
-            .await?;
-        let status = response.status();
-
-        if !status.is_success() {
-            return Err(DataApiError::from_response(response).await);
-        }
-
-        let volume: Vec<LiveVolume> = response.json().await?;
-        Ok(volume)
+            .await
     }
 }
 

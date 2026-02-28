@@ -1,4 +1,4 @@
-use polyoxide_core::{HttpClient, QueryBuilder, Request, RequestError};
+use polyoxide_core::{HttpClient, QueryBuilder, Request};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -59,22 +59,10 @@ impl UserApi {
 
     /// Get total markets traded by this user
     pub async fn traded(&self) -> Result<UserTraded, DataApiError> {
-        let url = self.http_client.base_url.join("/traded")?;
-        let response = self
-            .http_client
-            .client
-            .get(url)
-            .query(&[("user", &self.user_address)])
+        Request::<UserTraded, DataApiError>::new(self.http_client.clone(), "/traded")
+            .query("user", &self.user_address)
             .send()
-            .await?;
-        let status = response.status();
-
-        if !status.is_success() {
-            return Err(DataApiError::from_response(response).await);
-        }
-
-        let traded: UserTraded = response.json().await?;
-        Ok(traded)
+            .await
     }
 }
 

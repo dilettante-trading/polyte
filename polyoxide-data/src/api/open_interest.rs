@@ -1,4 +1,4 @@
-use polyoxide_core::{HttpClient, RequestError};
+use polyoxide_core::{HttpClient, QueryBuilder, Request};
 
 use crate::{error::DataApiError, types::OpenInterest};
 
@@ -12,16 +12,14 @@ impl OpenInterestApi {
     /// Get open interest for markets
     pub fn get(&self) -> GetOpenInterest {
         GetOpenInterest {
-            http_client: self.http_client.clone(),
-            markets: None,
+            request: Request::new(self.http_client.clone(), "/oi"),
         }
     }
 }
 
 /// Request builder for getting open interest
 pub struct GetOpenInterest {
-    http_client: HttpClient,
-    markets: Option<Vec<String>>,
+    request: Request<Vec<OpenInterest>, DataApiError>,
 }
 
 impl GetOpenInterest {
@@ -29,28 +27,13 @@ impl GetOpenInterest {
     pub fn market(mut self, condition_ids: impl IntoIterator<Item = impl ToString>) -> Self {
         let ids: Vec<String> = condition_ids.into_iter().map(|s| s.to_string()).collect();
         if !ids.is_empty() {
-            self.markets = Some(ids);
+            self.request = self.request.query("market", ids.join(","));
         }
         self
     }
 
     /// Execute the request
     pub async fn send(self) -> Result<Vec<OpenInterest>, DataApiError> {
-        let url = self.http_client.base_url.join("/oi")?;
-        let mut request = self.http_client.client.get(url);
-
-        if let Some(markets) = self.markets {
-            request = request.query(&[("market", markets.join(","))]);
-        }
-
-        let response = request.send().await?;
-        let status = response.status();
-
-        if !status.is_success() {
-            return Err(DataApiError::from_response(response).await);
-        }
-
-        let oi: Vec<OpenInterest> = response.json().await?;
-        Ok(oi)
+        self.request.send().await
     }
 }

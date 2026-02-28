@@ -1,4 +1,4 @@
-use polyoxide_core::{HttpClient, RequestError};
+use polyoxide_core::{HttpClient, Request, RequestError};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
@@ -13,20 +13,9 @@ pub struct Health {
 impl Health {
     /// Check API health status
     pub async fn check(&self) -> Result<HealthResponse, DataApiError> {
-        let response = self
-            .http_client
-            .client
-            .get(self.http_client.base_url.clone())
+        Request::<HealthResponse, DataApiError>::new(self.http_client.clone(), "/")
             .send()
-            .await?;
-        let status = response.status();
-
-        if !status.is_success() {
-            return Err(DataApiError::from_response(response).await);
-        }
-
-        let health: HealthResponse = response.json().await?;
-        Ok(health)
+            .await
     }
 
     /// Measure the round-trip time (RTT) to the Polymarket Data API.
@@ -46,6 +35,8 @@ impl Health {
     /// # }
     /// ```
     pub async fn ping(&self) -> Result<Duration, DataApiError> {
+        self.http_client.acquire_rate_limit("/", None).await;
+
         let start = Instant::now();
         let response = self
             .http_client
