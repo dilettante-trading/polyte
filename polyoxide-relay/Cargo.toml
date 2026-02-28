@@ -12,7 +12,6 @@ categories = ["api-bindings", "web-programming::http-client"]
 
 [dependencies]
 alloy = { version = "1.1.2", features = [
-    "contract",
     "network",
     "provider-http",
     "rpc-types",
@@ -28,9 +27,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
-hmac = { workspace = true }
-sha2 = { workspace = true }
-base64 = { workspace = true }
 hex = { workspace = true }
 
 [dev-dependencies]

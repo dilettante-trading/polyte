@@ -15,14 +15,13 @@ name = "polyoxide"
 path = "src/main.rs"
 
 [dependencies]
-polyoxide-clob = { workspace = true }
+polyoxide-clob = { workspace = true, features = ["ws"] }
 polyoxide-data = { workspace = true }
 polyoxide-gamma = { workspace = true }
 tokio = { workspace = true }
 clap = { version = "4.5", features = ["derive", "env"] }
 clap_complete = "4.5"
 serde_json = { workspace = true }
-eyre = "0.6"
 color-eyre = "0.6"
 futures-util = { workspace = true }
 ctrlc = "3.4"

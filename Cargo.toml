@@ -24,12 +24,11 @@ polyoxide-clob = { path = "polyoxide-clob", version = "0.9.0" }
 polyoxide-gamma = { path = "polyoxide-gamma", version = "0.9.0" }
 polyoxide-data = { path = "polyoxide-data", version = "0.9.0" }
 polyoxide-relay = { path = "polyoxide-relay", version = "0.9.0" }
-tokio = { version = "1.41", features = ["full"] }
+tokio = { version = "1.41", features = ["macros", "rt-multi-thread", "time", "net"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
-anyhow = "1.0"
 hmac = "0.12"
 sha2 = "0.10"
 base64 = "0.22"
@@ -37,7 +36,7 @@ chrono = "0.4"
 url = "2.5"
 hex = "0.4"
 tracing = "0.1"
-tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-native-roots"] }
 futures-util = "0.3"
 rust_decimal = { version = "1.37", features = ["serde-with-str"] }
 governor = { version = "0.8", features = ["std"] }
