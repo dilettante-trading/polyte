@@ -93,7 +93,7 @@ impl Account {
         credentials: Credentials,
     ) -> Result<Self, ClobError> {
         let wallet = Wallet::from_private_key(&private_key.into())?;
-        let signer = Signer::new(&credentials.secret)?;
+        let signer = Signer::new(&credentials.secret);
 
         Ok(Self {
             wallet,

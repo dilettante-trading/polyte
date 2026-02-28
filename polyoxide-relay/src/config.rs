@@ -105,7 +105,7 @@ impl BuilderConfig {
         let timestamp = current_timestamp();
 
         // Create signer from base64-encoded secret (Relay v2 uses base64 secrets)
-        let signer = Signer::new(&self.secret)?;
+        let signer = Signer::new(&self.secret);
         let message = Signer::create_message(timestamp, method, path, body);
         let signature = signer.sign(&message, Base64Format::UrlSafe)?;
 

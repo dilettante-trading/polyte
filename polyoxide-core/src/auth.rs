@@ -55,14 +55,14 @@ impl Signer {
     /// 2. URL-safe with padding
     /// 3. Standard base64
     /// 4. Falls back to raw bytes if all decoding attempts fail
-    pub fn new(secret: &str) -> Result<Self, String> {
+    pub fn new(secret: &str) -> Self {
         let decoded = BASE64_URL_SAFE_NO_PAD
             .decode(secret)
             .or_else(|_| URL_SAFE.decode(secret))
             .or_else(|_| STANDARD.decode(secret))
             .unwrap_or_else(|_| secret.as_bytes().to_vec());
 
-        Ok(Self { secret: decoded })
+        Self { secret: decoded }
     }
 
     /// Create a new signer from raw string secret (no base64 decoding)
@@ -119,7 +119,7 @@ mod tests {
     fn test_signer_new() {
         // Test with base64-encoded secret
         let secret = "c2VjcmV0"; // "secret" in base64
-        let signer = Signer::new(secret).unwrap();
+        let signer = Signer::new(secret);
         assert_eq!(signer.secret, b"secret");
     }
 
@@ -132,7 +132,7 @@ mod tests {
     #[test]
     fn test_sign_url_safe() {
         let secret = "c2VjcmV0"; // "secret" in base64
-        let signer = Signer::new(secret).unwrap();
+        let signer = Signer::new(secret);
 
         let message = Signer::create_message(1234567890, "GET", "/api/test", None);
         let signature = signer.sign(&message, Base64Format::UrlSafe).unwrap();
@@ -145,7 +145,7 @@ mod tests {
     #[test]
     fn test_sign_standard() {
         let secret = "c2VjcmV0"; // "secret" in base64
-        let signer = Signer::new(secret).unwrap();
+        let signer = Signer::new(secret);
 
         let message = Signer::create_message(1234567890, "GET", "/api/test", None);
         let signature = signer.sign(&message, Base64Format::Standard).unwrap();
@@ -167,7 +167,7 @@ mod tests {
     #[test]
     fn test_signer_debug_redacts_secret() {
         // "c2VjcmV0" is "secret" in base64, decoded bytes are [115, 101, 99, 114, 101, 116]
-        let signer = Signer::new("c2VjcmV0").unwrap();
+        let signer = Signer::new("c2VjcmV0");
         let debug_output = format!("{:?}", signer);
         assert!(
             debug_output.contains("[REDACTED]"),
