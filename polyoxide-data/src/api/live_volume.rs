@@ -1,22 +1,20 @@
-use polyoxide_core::RequestError;
-use reqwest::Client;
+use polyoxide_core::{HttpClient, RequestError};
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 use crate::error::DataApiError;
 
 /// LiveVolume namespace for live volume operations
 #[derive(Clone)]
 pub struct LiveVolumeApi {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl LiveVolumeApi {
     /// Get live volume for an event
     pub async fn get(&self, event_id: u64) -> Result<Vec<LiveVolume>, DataApiError> {
-        let url = self.base_url.join("/live-volume")?;
+        let url = self.http_client.base_url.join("/live-volume")?;
         let response = self
+            .http_client
             .client
             .get(url)
             .query(&[("id", event_id)])

@@ -1,15 +1,12 @@
-use polyoxide_core::RequestError;
-use reqwest::Client;
+use polyoxide_core::{HttpClient, RequestError};
 use std::time::{Duration, Instant};
-use url::Url;
 
 use crate::error::GammaError;
 
 /// Health namespace for API health and latency operations
 #[derive(Clone)]
 pub struct Health {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl Health {
@@ -31,7 +28,12 @@ impl Health {
     /// ```
     pub async fn ping(&self) -> Result<Duration, GammaError> {
         let start = Instant::now();
-        let response = self.client.get(self.base_url.clone()).send().await?;
+        let response = self
+            .http_client
+            .client
+            .get(self.http_client.base_url.clone())
+            .send()
+            .await?;
         let latency = start.elapsed();
 
         if !response.status().is_success() {

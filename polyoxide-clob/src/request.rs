@@ -1,10 +1,9 @@
 use std::marker::PhantomData;
 
 use alloy::primitives::Address;
-use polyoxide_core::{current_timestamp, request::QueryBuilder};
-use reqwest::{Client, Method, Response};
+use polyoxide_core::{current_timestamp, request::QueryBuilder, HttpClient};
+use reqwest::{Method, Response};
 use serde::de::DeserializeOwned;
-use url::Url;
 
 use crate::{
     account::{Credentials, Signer, Wallet},
@@ -29,8 +28,7 @@ pub enum AuthMode {
 
 /// Generic request builder for CLOB API
 pub struct Request<T> {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
     pub(crate) path: String,
     pub(crate) method: Method,
     pub(crate) query: Vec<(String, String)>,
@@ -43,15 +41,13 @@ pub struct Request<T> {
 impl<T> Request<T> {
     /// Create a new GET request
     pub(crate) fn get(
-        client: Client,
-        base_url: Url,
+        http_client: HttpClient,
         path: impl Into<String>,
         auth: AuthMode,
         chain_id: u64,
     ) -> Self {
         Self {
-            client,
-            base_url,
+            http_client,
             path: path.into(),
             method: Method::GET,
             query: Vec::new(),
@@ -64,15 +60,13 @@ impl<T> Request<T> {
 
     /// Create a new POST request
     pub(crate) fn post(
-        client: Client,
-        base_url: Url,
+        http_client: HttpClient,
         path: String,
         auth: AuthMode,
         chain_id: u64,
     ) -> Self {
         Self {
-            client,
-            base_url,
+            http_client,
             path,
             method: Method::POST,
             query: Vec::new(),
@@ -85,15 +79,13 @@ impl<T> Request<T> {
 
     /// Create a new DELETE request
     pub(crate) fn delete(
-        client: Client,
-        base_url: Url,
+        http_client: HttpClient,
         path: impl Into<String>,
         auth: AuthMode,
         chain_id: u64,
     ) -> Self {
         Self {
-            client,
-            base_url,
+            http_client,
             path: path.into(),
             method: Method::DELETE,
             query: Vec::new(),
@@ -134,100 +126,124 @@ impl<T: DeserializeOwned> Request<T> {
 
     /// Execute the request and return raw response
     pub async fn send_raw(self) -> Result<Response, ClobError> {
-        let url = self.base_url.join(&self.path)?;
+        let url = self.http_client.base_url.join(&self.path)?;
 
-        // Build the base request
-        let mut request = match self.method {
-            Method::GET => self.client.get(url),
-            Method::POST => {
-                let mut req = self.client.post(url);
-                if let Some(body) = &self.body {
-                    req = req.header("Content-Type", "application/json").json(body);
+        let http_client = self.http_client;
+        let path = self.path;
+        let method = self.method;
+        let query = self.query;
+        let body = self.body;
+        let auth = self.auth;
+        let chain_id = self.chain_id;
+        let mut attempt = 0u32;
+
+        loop {
+            http_client.acquire_rate_limit(&path, Some(&method)).await;
+
+            // Build the base request — rebuilt each iteration so auth timestamps are fresh
+            let mut request = match method {
+                Method::GET => http_client.client.get(url.clone()),
+                Method::POST => {
+                    let mut req = http_client.client.post(url.clone());
+                    if let Some(ref body) = body {
+                        req = req.header("Content-Type", "application/json").json(body);
+                    }
+                    req
                 }
-                req
-            }
-            Method::DELETE => {
-                let mut req = self.client.delete(url);
-                if let Some(body) = &self.body {
-                    req = req.header("Content-Type", "application/json").json(body);
+                Method::DELETE => {
+                    let mut req = http_client.client.delete(url.clone());
+                    if let Some(ref body) = body {
+                        req = req.header("Content-Type", "application/json").json(body);
+                    }
+                    req
                 }
-                req
+                _ => return Err(ClobError::validation("Unsupported HTTP method")),
+            };
+
+            // Add query parameters
+            if !query.is_empty() {
+                request = request.query(&query);
             }
-            _ => return Err(ClobError::validation("Unsupported HTTP method")),
-        };
 
-        // Add query parameters
-        if !self.query.is_empty() {
-            request = request.query(&self.query);
-        }
+            // Add authentication headers (fresh timestamp on each attempt)
+            request = add_auth_headers(request, &auth, &path, &method, &body, chain_id).await?;
 
-        // Add authentication headers
-        request = self.add_auth_headers(request).await?;
+            // Execute request
+            let response = request.send().await?;
+            let status = response.status();
 
-        // Execute request
-        let response = request.send().await?;
-        let status = response.status();
-
-        tracing::debug!("Response status: {}", status);
-
-        if !status.is_success() {
-            let error = ClobError::from_response(response).await;
-            tracing::error!("Request failed: {:?}", error);
-            return Err(error);
-        }
-
-        Ok(response)
-    }
-
-    /// Add authentication headers based on auth mode
-    async fn add_auth_headers(
-        &self,
-        mut request: reqwest::RequestBuilder,
-    ) -> Result<reqwest::RequestBuilder, ClobError> {
-        match &self.auth {
-            AuthMode::None => Ok(request),
-            AuthMode::L1 {
-                wallet,
-                nonce,
-                timestamp,
-            } => {
-                use crate::core::eip712::sign_clob_auth;
-
-                let signature =
-                    sign_clob_auth(wallet.signer(), self.chain_id, *timestamp, *nonce).await?;
-
-                request = request
-                    .header("POLY_ADDRESS", format!("{:?}", wallet.address()))
-                    .header("POLY_SIGNATURE", signature)
-                    .header("POLY_TIMESTAMP", timestamp.to_string())
-                    .header("POLY_NONCE", nonce.to_string());
-
-                Ok(request)
-            }
-            AuthMode::L2 {
-                address,
-                credentials,
-                signer,
-            } => {
-                let timestamp = current_timestamp();
-                let body_str = self.body.as_ref().map(|b| b.to_string());
-                let message = Signer::create_message(
-                    timestamp,
-                    self.method.as_str(),
-                    &self.path,
-                    body_str.as_deref(),
+            if let Some(backoff) = http_client.should_retry(status, attempt) {
+                attempt += 1;
+                tracing::warn!(
+                    "Rate limited (429) on {}, retry {} after {}ms",
+                    path,
+                    attempt,
+                    backoff.as_millis()
                 );
-                let signature = signer.sign(&message)?;
-
-                request = request
-                    .header("POLY_ADDRESS", format!("{:?}", address))
-                    .header("POLY_SIGNATURE", signature)
-                    .header("POLY_TIMESTAMP", timestamp.to_string())
-                    .header("POLY_API_KEY", &credentials.key)
-                    .header("POLY_PASSPHRASE", &credentials.passphrase);
-
-                Ok(request)
+                tokio::time::sleep(backoff).await;
+                continue;
             }
+
+            tracing::debug!("Response status: {}", status);
+
+            if !status.is_success() {
+                let error = ClobError::from_response(response).await;
+                tracing::error!("Request failed: {:?}", error);
+                return Err(error);
+            }
+
+            return Ok(response);
+        }
+    }
+}
+
+/// Add authentication headers based on auth mode (free function for retry loop)
+async fn add_auth_headers(
+    mut request: reqwest::RequestBuilder,
+    auth: &AuthMode,
+    path: &str,
+    method: &Method,
+    body: &Option<serde_json::Value>,
+    chain_id: u64,
+) -> Result<reqwest::RequestBuilder, ClobError> {
+    match auth {
+        AuthMode::None => Ok(request),
+        AuthMode::L1 {
+            wallet,
+            nonce,
+            timestamp,
+        } => {
+            use crate::core::eip712::sign_clob_auth;
+
+            let signature = sign_clob_auth(wallet.signer(), chain_id, *timestamp, *nonce).await?;
+
+            request = request
+                .header("POLY_ADDRESS", format!("{:?}", wallet.address()))
+                .header("POLY_SIGNATURE", signature)
+                .header("POLY_TIMESTAMP", timestamp.to_string())
+                .header("POLY_NONCE", nonce.to_string());
+
+            Ok(request)
+        }
+        AuthMode::L2 {
+            address,
+            credentials,
+            signer,
+        } => {
+            let timestamp = current_timestamp();
+            let body_str = body.as_ref().map(|b| b.to_string());
+            let message =
+                Signer::create_message(timestamp, method.as_str(), path, body_str.as_deref());
+            let signature = signer.sign(&message)?;
+
+            request = request
+                .header("POLY_ADDRESS", format!("{:?}", address))
+                .header("POLY_SIGNATURE", signature)
+                .header("POLY_TIMESTAMP", timestamp.to_string())
+                .header("POLY_API_KEY", &credentials.key)
+                .header("POLY_PASSPHRASE", &credentials.passphrase);
+
+            Ok(request)
         }
     }
 }

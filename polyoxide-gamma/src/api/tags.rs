@@ -1,29 +1,25 @@
-use polyoxide_core::{QueryBuilder, Request};
-use reqwest::Client;
-use url::Url;
+use polyoxide_core::{HttpClient, QueryBuilder, Request};
 
 use crate::{error::GammaError, types::Tag};
 
 /// Tags namespace for tag-related operations
 #[derive(Clone)]
 pub struct Tags {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl Tags {
     /// List tags with optional filtering
     pub fn list(&self) -> ListTags {
         ListTags {
-            request: Request::new(self.client.clone(), self.base_url.clone(), "/tags"),
+            request: Request::new(self.http_client.clone(), "/tags"),
         }
     }
 
     /// Get a tag by ID
     pub fn get(&self, id: impl Into<String>) -> Request<Tag, GammaError> {
         Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             format!("/tags/{}", urlencoding::encode(&id.into())),
         )
     }
@@ -31,8 +27,7 @@ impl Tags {
     /// Get a tag by slug
     pub fn get_by_slug(&self, slug: impl Into<String>) -> Request<Tag, GammaError> {
         Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             format!("/tags/slug/{}", urlencoding::encode(&slug.into())),
         )
     }
@@ -40,8 +35,7 @@ impl Tags {
     /// Get related tags by tag ID
     pub fn get_related(&self, id: impl Into<String>) -> Request<Vec<Tag>, GammaError> {
         Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             format!("/tags/{}/related-tags", urlencoding::encode(&id.into())),
         )
     }
@@ -49,8 +43,7 @@ impl Tags {
     /// Get related tags by tag slug
     pub fn get_related_by_slug(&self, slug: impl Into<String>) -> Request<Vec<Tag>, GammaError> {
         Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             format!(
                 "/tags/slug/{}/related-tags",
                 urlencoding::encode(&slug.into())

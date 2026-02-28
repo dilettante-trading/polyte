@@ -1,0 +1,492 @@
+use std::num::NonZeroU32;
+use std::sync::Arc;
+use std::time::Duration;
+
+use governor::Quota;
+use reqwest::Method;
+
+type DirectLimiter = governor::RateLimiter<
+    governor::state::NotKeyed,
+    governor::state::InMemoryState,
+    governor::clock::DefaultClock,
+>;
+
+/// Rate limit configuration for a specific endpoint pattern.
+struct EndpointLimit {
+    path_prefix: &'static str,
+    method: Option<Method>,
+    burst: DirectLimiter,
+    sustained: Option<DirectLimiter>,
+}
+
+/// Holds all rate limiters for one API surface.
+///
+/// Created via factory methods like [`RateLimiter::clob_default()`] which
+/// configure hardcoded limits matching Polymarket's documented rate limits.
+#[derive(Clone)]
+pub struct RateLimiter {
+    inner: Arc<RateLimiterInner>,
+}
+
+impl std::fmt::Debug for RateLimiter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RateLimiter")
+            .field("endpoints", &self.inner.limits.len())
+            .finish()
+    }
+}
+
+struct RateLimiterInner {
+    limits: Vec<EndpointLimit>,
+    default: DirectLimiter,
+}
+
+/// Helper to create a quota: `count` requests per `period`.
+fn quota(count: u32, period: Duration) -> Quota {
+    let replenish_per_sec = (count as f64 / period.as_secs_f64()).ceil() as u32;
+    Quota::per_second(NonZeroU32::new(replenish_per_sec.max(1)).unwrap())
+        .allow_burst(NonZeroU32::new(count.max(1)).unwrap())
+}
+
+impl RateLimiter {
+    /// Await the appropriate limiter(s) for this endpoint.
+    ///
+    /// Always awaits the default (general) limiter, then additionally awaits
+    /// the first matching endpoint-specific limiter (burst + sustained).
+    pub async fn acquire(&self, path: &str, method: Option<&Method>) {
+        self.inner.default.until_ready().await;
+
+        for limit in &self.inner.limits {
+            if !path.starts_with(limit.path_prefix) {
+                continue;
+            }
+            if let Some(ref m) = limit.method {
+                if method != Some(m) {
+                    continue;
+                }
+            }
+            limit.burst.until_ready().await;
+            if let Some(ref sustained) = limit.sustained {
+                sustained.until_ready().await;
+            }
+            break;
+        }
+    }
+
+    /// CLOB API rate limits.
+    ///
+    /// - General: 9,000/10s
+    /// - POST /order: 3,500/10s burst + 36,000/10min sustained
+    /// - DELETE /order: 3,000/10s
+    /// - Market data (/markets, /book, /price, /midpoint, /prices-history, /neg-risk, /tick-size): 1,500/10s
+    /// - Ledger (/trades, /data/): 900/10s
+    /// - Auth (/auth): 100/10s
+    pub fn clob_default() -> Self {
+        let ten_sec = Duration::from_secs(10);
+        let ten_min = Duration::from_secs(600);
+
+        Self {
+            inner: Arc::new(RateLimiterInner {
+                default: DirectLimiter::direct(quota(9_000, ten_sec)),
+                limits: vec![
+                    // POST /order — dual window
+                    EndpointLimit {
+                        path_prefix: "/order",
+                        method: Some(Method::POST),
+                        burst: DirectLimiter::direct(quota(3_500, ten_sec)),
+                        sustained: Some(DirectLimiter::direct(quota(36_000, ten_min))),
+                    },
+                    // DELETE /order
+                    EndpointLimit {
+                        path_prefix: "/order",
+                        method: Some(Method::DELETE),
+                        burst: DirectLimiter::direct(quota(3_000, ten_sec)),
+                        sustained: None,
+                    },
+                    // Auth
+                    EndpointLimit {
+                        path_prefix: "/auth",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(100, ten_sec)),
+                        sustained: None,
+                    },
+                    // Ledger — must come before market data since /trades is more specific
+                    EndpointLimit {
+                        path_prefix: "/trades",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(900, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/data/",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(900, ten_sec)),
+                        sustained: None,
+                    },
+                    // Market data endpoints
+                    EndpointLimit {
+                        path_prefix: "/markets",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(1_500, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/book",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(1_500, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/price",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(1_500, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/midpoint",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(1_500, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/neg-risk",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(1_500, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/tick-size",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(1_500, ten_sec)),
+                        sustained: None,
+                    },
+                ],
+            }),
+        }
+    }
+
+    /// Gamma API rate limits.
+    ///
+    /// - General: 4,000/10s
+    /// - /events: 500/10s
+    /// - /markets: 300/10s
+    /// - /public-search: 350/10s
+    /// - /comments: 200/10s
+    /// - /tags: 200/10s
+    pub fn gamma_default() -> Self {
+        let ten_sec = Duration::from_secs(10);
+
+        Self {
+            inner: Arc::new(RateLimiterInner {
+                default: DirectLimiter::direct(quota(4_000, ten_sec)),
+                limits: vec![
+                    EndpointLimit {
+                        path_prefix: "/comments",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(200, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/tags",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(200, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/markets",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(300, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/public-search",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(350, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/events",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(500, ten_sec)),
+                        sustained: None,
+                    },
+                ],
+            }),
+        }
+    }
+
+    /// Data API rate limits.
+    ///
+    /// - General: 1,000/10s
+    /// - /trades: 200/10s
+    /// - /positions and /closed-positions: 150/10s
+    pub fn data_default() -> Self {
+        let ten_sec = Duration::from_secs(10);
+
+        Self {
+            inner: Arc::new(RateLimiterInner {
+                default: DirectLimiter::direct(quota(1_000, ten_sec)),
+                limits: vec![
+                    EndpointLimit {
+                        path_prefix: "/positions",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(150, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/closed-positions",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(150, ten_sec)),
+                        sustained: None,
+                    },
+                    EndpointLimit {
+                        path_prefix: "/trades",
+                        method: None,
+                        burst: DirectLimiter::direct(quota(200, ten_sec)),
+                        sustained: None,
+                    },
+                ],
+            }),
+        }
+    }
+
+    /// Relay API rate limits.
+    ///
+    /// - 25 requests per 1 minute (single limiter, no endpoint-specific limits)
+    pub fn relay_default() -> Self {
+        Self {
+            inner: Arc::new(RateLimiterInner {
+                default: DirectLimiter::direct(quota(25, Duration::from_secs(60))),
+                limits: vec![],
+            }),
+        }
+    }
+}
+
+/// Configuration for retry-on-429 with exponential backoff.
+#[derive(Debug, Clone)]
+pub struct RetryConfig {
+    pub max_retries: u32,
+    pub initial_backoff_ms: u64,
+    pub max_backoff_ms: u64,
+}
+
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self {
+            max_retries: 3,
+            initial_backoff_ms: 500,
+            max_backoff_ms: 10_000,
+        }
+    }
+}
+
+impl RetryConfig {
+    /// Calculate backoff duration with jitter for attempt N.
+    pub fn backoff(&self, attempt: u32) -> Duration {
+        let base = self
+            .initial_backoff_ms
+            .saturating_mul(1u64 << attempt.min(10));
+        let capped = base.min(self.max_backoff_ms);
+        // Simple jitter: 75%-125% of computed delay
+        let jitter_factor = 0.75 + (attempt as f64 * 0.1 % 0.5);
+        let ms = (capped as f64 * jitter_factor) as u64;
+        Duration::from_millis(ms.max(1))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── RetryConfig ──────────────────────────────────────────────
+
+    #[test]
+    fn test_retry_config_default() {
+        let cfg = RetryConfig::default();
+        assert_eq!(cfg.max_retries, 3);
+        assert_eq!(cfg.initial_backoff_ms, 500);
+        assert_eq!(cfg.max_backoff_ms, 10_000);
+    }
+
+    #[test]
+    fn test_backoff_attempt_zero() {
+        let cfg = RetryConfig::default();
+        let d = cfg.backoff(0);
+        // base = 500 * 2^0 = 500, capped = 500, jitter = 0.75 + (0*0.1 % 0.5) = 0.75
+        // ms = 500 * 0.75 = 375
+        assert_eq!(d, Duration::from_millis(375));
+    }
+
+    #[test]
+    fn test_backoff_exponential_growth() {
+        let cfg = RetryConfig::default();
+        let d0 = cfg.backoff(0);
+        let d1 = cfg.backoff(1);
+        let d2 = cfg.backoff(2);
+        assert!(d0 < d1, "d0={d0:?} should be < d1={d1:?}");
+        assert!(d1 < d2, "d1={d1:?} should be < d2={d2:?}");
+    }
+
+    #[test]
+    fn test_backoff_jitter_bounds() {
+        let cfg = RetryConfig::default();
+        for attempt in 0..20 {
+            let d = cfg.backoff(attempt);
+            let base = cfg
+                .initial_backoff_ms
+                .saturating_mul(1u64 << attempt.min(10));
+            let capped = base.min(cfg.max_backoff_ms);
+            let lower = (capped as f64 * 0.75) as u64;
+            let upper = (capped as f64 * 1.25) as u64;
+            let ms = d.as_millis() as u64;
+            assert!(
+                ms >= lower.max(1) && ms <= upper,
+                "attempt {attempt}: {ms}ms not in [{lower}, {upper}]"
+            );
+        }
+    }
+
+    #[test]
+    fn test_backoff_max_capping() {
+        let cfg = RetryConfig::default();
+        for attempt in 5..=10 {
+            let d = cfg.backoff(attempt);
+            let ceiling = (cfg.max_backoff_ms as f64 * 1.25) as u64;
+            assert!(
+                d.as_millis() as u64 <= ceiling,
+                "attempt {attempt}: {:?} exceeded ceiling {ceiling}ms",
+                d
+            );
+        }
+    }
+
+    #[test]
+    fn test_backoff_very_high_attempt() {
+        let cfg = RetryConfig::default();
+        let d = cfg.backoff(100);
+        let ceiling = (cfg.max_backoff_ms as f64 * 1.25) as u64;
+        assert!(d.as_millis() as u64 <= ceiling);
+        assert!(d.as_millis() >= 1);
+    }
+
+    // ── quota() ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_quota_creation() {
+        // Should not panic for representative values
+        let _ = quota(100, Duration::from_secs(10));
+        let _ = quota(1, Duration::from_secs(60));
+        let _ = quota(9_000, Duration::from_secs(10));
+    }
+
+    #[test]
+    fn test_quota_edge_zero_count() {
+        // count=0 is guarded by .max(1) — should not panic
+        let _ = quota(0, Duration::from_secs(10));
+    }
+
+    // ── Factory methods ──────────────────────────────────────────
+
+    #[test]
+    fn test_clob_default_construction() {
+        let rl = RateLimiter::clob_default();
+        assert_eq!(rl.inner.limits.len(), 11);
+        assert!(format!("{:?}", rl).contains("endpoints"));
+    }
+
+    #[test]
+    fn test_gamma_default_construction() {
+        let rl = RateLimiter::gamma_default();
+        assert_eq!(rl.inner.limits.len(), 5);
+    }
+
+    #[test]
+    fn test_data_default_construction() {
+        let rl = RateLimiter::data_default();
+        assert_eq!(rl.inner.limits.len(), 3);
+    }
+
+    #[test]
+    fn test_relay_default_construction() {
+        let rl = RateLimiter::relay_default();
+        assert_eq!(rl.inner.limits.len(), 0);
+    }
+
+    #[test]
+    fn test_rate_limiter_debug_format() {
+        let rl = RateLimiter::clob_default();
+        let dbg = format!("{:?}", rl);
+        assert!(dbg.contains("RateLimiter"), "missing struct name: {dbg}");
+        assert!(dbg.contains("endpoints: 11"), "missing count: {dbg}");
+    }
+
+    // ── Endpoint matching internals ──────────────────────────────
+
+    #[test]
+    fn test_clob_endpoint_order_and_methods() {
+        let rl = RateLimiter::clob_default();
+        let limits = &rl.inner.limits;
+
+        // First: POST /order with sustained
+        assert_eq!(limits[0].path_prefix, "/order");
+        assert_eq!(limits[0].method, Some(Method::POST));
+        assert!(limits[0].sustained.is_some());
+
+        // Second: DELETE /order without sustained
+        assert_eq!(limits[1].path_prefix, "/order");
+        assert_eq!(limits[1].method, Some(Method::DELETE));
+        assert!(limits[1].sustained.is_none());
+
+        // Third: /auth with method=None
+        assert_eq!(limits[2].path_prefix, "/auth");
+        assert!(limits[2].method.is_none());
+    }
+
+    // ── acquire() async behavior ─────────────────────────────────
+
+    #[tokio::test]
+    async fn test_acquire_single_completes_immediately() {
+        let rl = RateLimiter::clob_default();
+        let start = std::time::Instant::now();
+        rl.acquire("/order", Some(&Method::POST)).await;
+        assert!(start.elapsed() < Duration::from_millis(50));
+    }
+
+    #[tokio::test]
+    async fn test_acquire_matches_endpoint_by_prefix() {
+        let rl = RateLimiter::clob_default();
+        let start = std::time::Instant::now();
+        // /order/123 should match the /order prefix
+        rl.acquire("/order/123", Some(&Method::POST)).await;
+        assert!(start.elapsed() < Duration::from_millis(50));
+    }
+
+    #[tokio::test]
+    async fn test_acquire_method_filtering() {
+        let rl = RateLimiter::clob_default();
+        let start = std::time::Instant::now();
+        // GET /order shouldn't match POST or DELETE /order endpoints — falls to default only
+        rl.acquire("/order", Some(&Method::GET)).await;
+        assert!(start.elapsed() < Duration::from_millis(50));
+    }
+
+    #[tokio::test]
+    async fn test_acquire_no_endpoint_match_uses_default_only() {
+        let rl = RateLimiter::clob_default();
+        let start = std::time::Instant::now();
+        rl.acquire("/unknown/path", None).await;
+        assert!(start.elapsed() < Duration::from_millis(50));
+    }
+
+    #[tokio::test]
+    async fn test_acquire_method_none_matches_any_method() {
+        let rl = RateLimiter::gamma_default();
+        let start = std::time::Instant::now();
+        // /events has method: None — should match GET, POST, and None
+        rl.acquire("/events", Some(&Method::GET)).await;
+        rl.acquire("/events", Some(&Method::POST)).await;
+        rl.acquire("/events", None).await;
+        assert!(start.elapsed() < Duration::from_millis(50));
+    }
+}

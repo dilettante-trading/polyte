@@ -1,29 +1,25 @@
-use polyoxide_core::{QueryBuilder, Request};
-use reqwest::Client;
-use url::Url;
+use polyoxide_core::{HttpClient, QueryBuilder, Request};
 
 use crate::{error::GammaError, types::SeriesData};
 
 /// Series namespace for series-related operations
 #[derive(Clone)]
 pub struct Series {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl Series {
     /// List series with optional filtering
     pub fn list(&self) -> ListSeries {
         ListSeries {
-            request: Request::new(self.client.clone(), self.base_url.clone(), "/series"),
+            request: Request::new(self.http_client.clone(), "/series"),
         }
     }
 
     /// Get a series by ID
     pub fn get(&self, id: impl Into<String>) -> Request<SeriesData, GammaError> {
         Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             format!("/series/{}", urlencoding::encode(&id.into())),
         )
     }

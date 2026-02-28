@@ -1,6 +1,4 @@
-use polyoxide_core::{QueryBuilder, Request};
-use reqwest::Client;
-use url::Url;
+use polyoxide_core::{HttpClient, QueryBuilder, Request};
 
 use crate::{
     error::GammaError,
@@ -10,20 +8,19 @@ use crate::{
 /// Sport namespace for sports-related operations
 #[derive(Clone)]
 pub struct Sports {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl Sports {
     /// Get all sports metadata
     pub fn list(&self) -> Request<Vec<SportMetadata>, GammaError> {
-        Request::new(self.client.clone(), self.base_url.clone(), "/sports")
+        Request::new(self.http_client.clone(), "/sports")
     }
 
     /// List teams with optional filtering
     pub fn list_teams(&self) -> ListTeams {
         ListTeams {
-            request: Request::new(self.client.clone(), self.base_url.clone(), "/teams"),
+            request: Request::new(self.http_client.clone(), "/teams"),
         }
     }
 }

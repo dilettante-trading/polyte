@@ -1,36 +1,25 @@
-use polyoxide_core::{QueryBuilder, Request};
-use reqwest::Client;
+use polyoxide_core::{HttpClient, QueryBuilder, Request};
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 use crate::error::DataApiError;
 
 /// Builders namespace for builder-related operations
 #[derive(Clone)]
 pub struct BuildersApi {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl BuildersApi {
     /// Get the aggregated builder leaderboard
     pub fn leaderboard(&self) -> GetBuilderLeaderboard {
-        let request = Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
-            "/v1/builders/leaderboard",
-        );
+        let request = Request::new(self.http_client.clone(), "/v1/builders/leaderboard");
 
         GetBuilderLeaderboard { request }
     }
 
     /// Get daily builder volume time series
     pub fn volume(&self) -> GetBuilderVolume {
-        let request = Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
-            "/v1/builders/volume",
-        );
+        let request = Request::new(self.http_client.clone(), "/v1/builders/volume");
 
         GetBuilderVolume { request }
     }

@@ -1,22 +1,19 @@
-use polyoxide_core::{QueryBuilder, Request};
-use reqwest::Client;
+use polyoxide_core::{HttpClient, QueryBuilder, Request};
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 use crate::error::DataApiError;
 
 /// Holders namespace for holder-related operations
 #[derive(Clone)]
 pub struct Holders {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl Holders {
     /// Get top holders for markets
     pub fn list(&self, markets: impl IntoIterator<Item = impl ToString>) -> ListHolders {
         let market_ids: Vec<String> = markets.into_iter().map(|s| s.to_string()).collect();
-        let mut request = Request::new(self.client.clone(), self.base_url.clone(), "/holders");
+        let mut request = Request::new(self.http_client.clone(), "/holders");
         if !market_ids.is_empty() {
             request = request.query("market", market_ids.join(","));
         }

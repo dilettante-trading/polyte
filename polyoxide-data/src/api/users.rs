@@ -1,7 +1,5 @@
-use polyoxide_core::{QueryBuilder, Request, RequestError};
-use reqwest::Client;
+use polyoxide_core::{HttpClient, QueryBuilder, Request, RequestError};
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 use crate::{
     error::DataApiError,
@@ -14,15 +12,14 @@ use crate::{
 /// User namespace for user-related operations
 #[derive(Clone)]
 pub struct UserApi {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
     pub(crate) user_address: String,
 }
 
 impl UserApi {
     /// List positions for this user
     pub fn list_positions(&self) -> ListPositions {
-        let mut request = Request::new(self.client.clone(), self.base_url.clone(), "/positions");
+        let mut request = Request::new(self.http_client.clone(), "/positions");
         request = request.query("user", &self.user_address);
 
         ListPositions { request }
@@ -30,7 +27,7 @@ impl UserApi {
 
     /// Get total value of this user's positions
     pub fn positions_value(&self) -> GetPositionValue {
-        let mut request = Request::new(self.client.clone(), self.base_url.clone(), "/value");
+        let mut request = Request::new(self.http_client.clone(), "/value");
         request = request.query("user", &self.user_address);
 
         GetPositionValue { request }
@@ -38,11 +35,7 @@ impl UserApi {
 
     /// List closed positions for this user
     pub fn closed_positions(&self) -> ListClosedPositions {
-        let mut request = Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
-            "/closed-positions",
-        );
+        let mut request = Request::new(self.http_client.clone(), "/closed-positions");
         request = request.query("user", &self.user_address);
 
         ListClosedPositions { request }
@@ -50,7 +43,7 @@ impl UserApi {
 
     /// List trades for this user
     pub fn trades(&self) -> ListUserTrades {
-        let mut request = Request::new(self.client.clone(), self.base_url.clone(), "/trades");
+        let mut request = Request::new(self.http_client.clone(), "/trades");
         request = request.query("user", &self.user_address);
 
         ListUserTrades { request }
@@ -58,7 +51,7 @@ impl UserApi {
 
     /// List activity for this user
     pub fn activity(&self) -> ListActivity {
-        let mut request = Request::new(self.client.clone(), self.base_url.clone(), "/activity");
+        let mut request = Request::new(self.http_client.clone(), "/activity");
         request = request.query("user", &self.user_address);
 
         ListActivity { request }
@@ -66,8 +59,9 @@ impl UserApi {
 
     /// Get total markets traded by this user
     pub async fn traded(&self) -> Result<UserTraded, DataApiError> {
-        let url = self.base_url.join("/traded")?;
+        let url = self.http_client.base_url.join("/traded")?;
         let response = self
+            .http_client
             .client
             .get(url)
             .query(&[("user", &self.user_address)])

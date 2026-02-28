@@ -1,8 +1,6 @@
-use polyoxide_core::QueryBuilder;
-use reqwest::Client;
+use polyoxide_core::{HttpClient, QueryBuilder};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 use crate::{
     request::{AuthMode, Request},
@@ -12,8 +10,7 @@ use crate::{
 /// Markets namespace for market-related operations
 #[derive(Clone)]
 pub struct Markets {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
     pub(crate) chain_id: u64,
 }
 
@@ -21,8 +18,7 @@ impl Markets {
     /// Get a market by condition ID
     pub fn get(&self, condition_id: impl Into<String>) -> Request<Market> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             format!("/markets/{}", urlencoding::encode(&condition_id.into())),
             AuthMode::None,
             self.chain_id,
@@ -34,8 +30,7 @@ impl Markets {
         token_ids: impl Into<Vec<String>>,
     ) -> Request<ListMarketsResponse> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/markets",
             AuthMode::None,
             self.chain_id,
@@ -46,8 +41,7 @@ impl Markets {
     /// List all markets
     pub fn list(&self) -> Request<ListMarketsResponse> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/markets",
             AuthMode::None,
             self.chain_id,
@@ -57,8 +51,7 @@ impl Markets {
     /// Get order book for a token
     pub fn order_book(&self, token_id: impl Into<String>) -> Request<OrderBook> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/book",
             AuthMode::None,
             self.chain_id,
@@ -69,8 +62,7 @@ impl Markets {
     /// Get price for a token and side
     pub fn price(&self, token_id: impl Into<String>, side: OrderSide) -> Request<PriceResponse> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/price",
             AuthMode::None,
             self.chain_id,
@@ -82,8 +74,7 @@ impl Markets {
     /// Get midpoint price for a token
     pub fn midpoint(&self, token_id: impl Into<String>) -> Request<MidpointResponse> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/midpoint",
             AuthMode::None,
             self.chain_id,
@@ -94,8 +85,7 @@ impl Markets {
     /// Get historical prices for a token
     pub fn prices_history(&self, token_id: impl Into<String>) -> Request<PricesHistoryResponse> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/prices-history",
             AuthMode::None,
             self.chain_id,
@@ -106,8 +96,7 @@ impl Markets {
     /// Get neg_risk status for a token
     pub fn neg_risk(&self, token_id: impl Into<String>) -> Request<NegRiskResponse> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/neg-risk".to_string(),
             AuthMode::None,
             self.chain_id,
@@ -118,8 +107,7 @@ impl Markets {
     /// Get tick size for a token
     pub fn tick_size(&self, token_id: impl Into<String>) -> Request<TickSizeResponse> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/tick-size".to_string(),
             AuthMode::None,
             self.chain_id,

@@ -1,6 +1,6 @@
-use polyoxide_core::{HttpClient, HttpClientBuilder, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS};
-use reqwest::Client;
-use url::Url;
+use polyoxide_core::{
+    HttpClient, HttpClientBuilder, RateLimiter, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS,
+};
 
 use crate::{
     api::{
@@ -15,8 +15,7 @@ const DEFAULT_BASE_URL: &str = "https://gamma-api.polymarket.com";
 /// Main Gamma API client
 #[derive(Clone)]
 pub struct Gamma {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl Gamma {
@@ -33,64 +32,56 @@ impl Gamma {
     /// Get markets namespace
     pub fn markets(&self) -> Markets {
         Markets {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
     /// Get events namespace
     pub fn events(&self) -> Events {
         Events {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
     /// Get series namespace
     pub fn series(&self) -> Series {
         Series {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
     /// Get tags namespace
     pub fn tags(&self) -> Tags {
         Tags {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
     /// Get sports namespace
     pub fn sports(&self) -> Sports {
         Sports {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
     /// Get comments namespace
     pub fn comments(&self) -> Comments {
         Comments {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
     /// Get user namespace
     pub fn user(&self) -> User {
         User {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
     /// Get health namespace
     pub fn health(&self) -> Health {
         Health {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 }
@@ -131,12 +122,13 @@ impl GammaBuilder {
 
     /// Build the Gamma client
     pub fn build(self) -> Result<Gamma, GammaError> {
-        let HttpClient { client, base_url } = HttpClientBuilder::new(&self.base_url)
+        let http_client = HttpClientBuilder::new(&self.base_url)
             .timeout_ms(self.timeout_ms)
             .pool_size(self.pool_size)
+            .with_rate_limiter(RateLimiter::gamma_default())
             .build()?;
 
-        Ok(Gamma { client, base_url })
+        Ok(Gamma { http_client })
     }
 }
 

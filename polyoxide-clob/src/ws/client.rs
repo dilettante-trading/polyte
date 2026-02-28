@@ -17,6 +17,9 @@ use super::{
     Channel,
 };
 
+/// Maximum number of subscriptions per WebSocket connection.
+const MAX_SUBSCRIPTIONS_PER_CONNECTION: usize = 500;
+
 /// WebSocket client for Polymarket real-time updates.
 ///
 /// Provides streaming access to market data (order book, prices) and user-specific
@@ -66,6 +69,13 @@ impl WebSocket {
     /// }
     /// ```
     pub async fn connect_market(asset_ids: Vec<String>) -> Result<Self, WebSocketError> {
+        if asset_ids.len() > MAX_SUBSCRIPTIONS_PER_CONNECTION {
+            return Err(WebSocketError::InvalidMessage(format!(
+                "Too many subscriptions ({}), max {}",
+                asset_ids.len(),
+                MAX_SUBSCRIPTIONS_PER_CONNECTION
+            )));
+        }
         let (mut ws, _) = connect_async(WS_MARKET_URL).await?;
 
         let subscription = MarketSubscription::new(asset_ids);
@@ -104,6 +114,13 @@ impl WebSocket {
         market_ids: Vec<String>,
         credentials: ApiCredentials,
     ) -> Result<Self, WebSocketError> {
+        if market_ids.len() > MAX_SUBSCRIPTIONS_PER_CONNECTION {
+            return Err(WebSocketError::InvalidMessage(format!(
+                "Too many subscriptions ({}), max {}",
+                market_ids.len(),
+                MAX_SUBSCRIPTIONS_PER_CONNECTION
+            )));
+        }
         let (mut ws, _) = connect_async(WS_USER_URL).await?;
 
         let subscription = UserSubscription::new(market_ids, credentials);
@@ -245,6 +262,13 @@ impl WebSocketBuilder {
         self,
         asset_ids: Vec<String>,
     ) -> Result<WebSocketWithPing, WebSocketError> {
+        if asset_ids.len() > MAX_SUBSCRIPTIONS_PER_CONNECTION {
+            return Err(WebSocketError::InvalidMessage(format!(
+                "Too many subscriptions ({}), max {}",
+                asset_ids.len(),
+                MAX_SUBSCRIPTIONS_PER_CONNECTION
+            )));
+        }
         let (mut ws, _) = connect_async(&self.market_url).await?;
 
         let subscription = MarketSubscription::new(asset_ids);
@@ -264,6 +288,13 @@ impl WebSocketBuilder {
         market_ids: Vec<String>,
         credentials: ApiCredentials,
     ) -> Result<WebSocketWithPing, WebSocketError> {
+        if market_ids.len() > MAX_SUBSCRIPTIONS_PER_CONNECTION {
+            return Err(WebSocketError::InvalidMessage(format!(
+                "Too many subscriptions ({}), max {}",
+                market_ids.len(),
+                MAX_SUBSCRIPTIONS_PER_CONNECTION
+            )));
+        }
         let (mut ws, _) = connect_async(&self.user_url).await?;
 
         let subscription = UserSubscription::new(market_ids, credentials);

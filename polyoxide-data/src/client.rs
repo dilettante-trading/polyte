@@ -1,6 +1,6 @@
-use polyoxide_core::{HttpClient, HttpClientBuilder, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS};
-use reqwest::Client;
-use url::Url;
+use polyoxide_core::{
+    HttpClient, HttpClientBuilder, RateLimiter, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS,
+};
 
 use crate::{
     api::{
@@ -20,8 +20,7 @@ const DEFAULT_BASE_URL: &str = "https://data-api.polymarket.com";
 /// Main Data API client
 #[derive(Clone)]
 pub struct DataApi {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl DataApi {
@@ -38,16 +37,14 @@ impl DataApi {
     /// Get health namespace
     pub fn health(&self) -> Health {
         Health {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
     /// Get user namespace for user-specific operations
     pub fn user(&self, user_address: impl Into<String>) -> UserApi {
         UserApi {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
             user_address: user_address.into(),
         }
     }
@@ -67,40 +64,35 @@ impl DataApi {
     /// Get trades namespace
     pub fn trades(&self) -> Trades {
         Trades {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
     /// Get holders namespace
     pub fn holders(&self) -> Holders {
         Holders {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
     /// Get open interest namespace
     pub fn open_interest(&self) -> OpenInterestApi {
         OpenInterestApi {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
     /// Get live volume namespace
     pub fn live_volume(&self) -> LiveVolumeApi {
         LiveVolumeApi {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
     /// Get builders namespace
     pub fn builders(&self) -> BuildersApi {
         BuildersApi {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 }
@@ -141,12 +133,13 @@ impl DataApiBuilder {
 
     /// Build the Data API client
     pub fn build(self) -> Result<DataApi, DataApiError> {
-        let HttpClient { client, base_url } = HttpClientBuilder::new(&self.base_url)
+        let http_client = HttpClientBuilder::new(&self.base_url)
             .timeout_ms(self.timeout_ms)
             .pool_size(self.pool_size)
+            .with_rate_limiter(RateLimiter::data_default())
             .build()?;
 
-        Ok(DataApi { client, base_url })
+        Ok(DataApi { http_client })
     }
 }
 

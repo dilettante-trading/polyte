@@ -1,6 +1,6 @@
-use polyoxide_core::{HttpClient, HttpClientBuilder, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS};
-use reqwest::Client;
-use url::Url;
+use polyoxide_core::{
+    HttpClient, HttpClientBuilder, RateLimiter, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS,
+};
 
 use crate::{
     account::{Account, Credentials},
@@ -21,8 +21,7 @@ const DEFAULT_BASE_URL: &str = "https://clob.polymarket.com";
 
 #[derive(Clone)]
 pub struct Clob {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
     pub(crate) chain_id: u64,
     pub(crate) account: Option<Account>,
     pub(crate) gamma: Gamma,
@@ -64,8 +63,7 @@ impl Clob {
     /// Get markets namespace
     pub fn markets(&self) -> Markets {
         Markets {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
             chain_id: self.chain_id,
         }
     }
@@ -73,8 +71,7 @@ impl Clob {
     /// Get health namespace for latency and health checks
     pub fn health(&self) -> Health {
         Health {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
         }
     }
 
@@ -86,8 +83,7 @@ impl Clob {
             .ok_or_else(|| ClobError::validation("Account required for orders API"))?;
 
         Ok(Orders {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
             wallet: account.wallet().clone(),
             credentials: account.credentials().clone(),
             signer: account.signer().clone(),
@@ -103,8 +99,7 @@ impl Clob {
             .ok_or_else(|| ClobError::validation("Account required for account API"))?;
 
         Ok(AccountApi {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
             wallet: account.wallet().clone(),
             credentials: account.credentials().clone(),
             signer: account.signer().clone(),
@@ -271,9 +266,12 @@ impl Clob {
 
     /// Fetch the current fee rate from the API
     async fn get_fee_rate(&self) -> Result<String, ClobError> {
+        self.http_client.acquire_rate_limit("/fee-rate", None).await;
+
         let fee_rate_response: serde_json::Value = self
+            .http_client
             .client
-            .get(self.base_url.join("/fee-rate")?)
+            .get(self.http_client.base_url.join("/fee-rate")?)
             .send()
             .await?
             .json()
@@ -354,7 +352,6 @@ impl Clob {
     }
 
     /// Post a signed order
-    /// Post a signed order
     pub async fn post_order(
         &self,
         signed_order: &SignedOrder,
@@ -381,8 +378,7 @@ impl Clob {
         });
 
         Request::post(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/order".to_string(),
             auth,
             self.chain_id,
@@ -517,9 +513,10 @@ impl ClobBuilder {
 
     /// Build the CLOB client
     pub fn build(self) -> Result<Clob, ClobError> {
-        let HttpClient { client, base_url } = HttpClientBuilder::new(&self.base_url)
+        let http_client = HttpClientBuilder::new(&self.base_url)
             .timeout_ms(self.timeout_ms)
             .pool_size(self.pool_size)
+            .with_rate_limiter(RateLimiter::clob_default())
             .build()?;
 
         let gamma = if let Some(gamma) = self.gamma {
@@ -535,8 +532,7 @@ impl ClobBuilder {
         };
 
         Ok(Clob {
-            client,
-            base_url,
+            http_client,
             chain_id: self.chain.chain_id(),
             account: self.account,
             gamma,

@@ -1,24 +1,46 @@
 use std::time::Duration;
 
+use reqwest::StatusCode;
 use url::Url;
 
 use crate::error::ApiError;
+use crate::rate_limit::{RateLimiter, RetryConfig};
 
 /// Default request timeout in milliseconds
 pub const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 /// Default connection pool size per host
 pub const DEFAULT_POOL_SIZE: usize = 10;
 
-/// Shared HTTP client with base URL.
+/// Shared HTTP client with base URL, optional rate limiter, and retry config.
 ///
 /// This is the common structure used by all API clients to hold
-/// the configured reqwest client and base URL.
+/// the configured reqwest client, base URL, and rate-limiting state.
 #[derive(Debug, Clone)]
 pub struct HttpClient {
     /// The underlying reqwest HTTP client
     pub client: reqwest::Client,
     /// Base URL for API requests
     pub base_url: Url,
+    rate_limiter: Option<RateLimiter>,
+    retry_config: RetryConfig,
+}
+
+impl HttpClient {
+    /// Await rate limiter for the given endpoint path + method.
+    pub async fn acquire_rate_limit(&self, path: &str, method: Option<&reqwest::Method>) {
+        if let Some(rl) = &self.rate_limiter {
+            rl.acquire(path, method).await;
+        }
+    }
+
+    /// Check if a 429 response should be retried; returns backoff duration if yes.
+    pub fn should_retry(&self, status: StatusCode, attempt: u32) -> Option<Duration> {
+        if status == StatusCode::TOO_MANY_REQUESTS && attempt < self.retry_config.max_retries {
+            Some(self.retry_config.backoff(attempt))
+        } else {
+            None
+        }
+    }
 }
 
 /// Builder for configuring HTTP clients.
@@ -41,6 +63,8 @@ pub struct HttpClientBuilder {
     base_url: String,
     timeout_ms: u64,
     pool_size: usize,
+    rate_limiter: Option<RateLimiter>,
+    retry_config: RetryConfig,
 }
 
 impl HttpClientBuilder {
@@ -50,6 +74,8 @@ impl HttpClientBuilder {
             base_url: base_url.into(),
             timeout_ms: DEFAULT_TIMEOUT_MS,
             pool_size: DEFAULT_POOL_SIZE,
+            rate_limiter: None,
+            retry_config: RetryConfig::default(),
         }
     }
 
@@ -69,6 +95,18 @@ impl HttpClientBuilder {
         self
     }
 
+    /// Set a rate limiter for this client.
+    pub fn with_rate_limiter(mut self, limiter: RateLimiter) -> Self {
+        self.rate_limiter = Some(limiter);
+        self
+    }
+
+    /// Set retry configuration for 429 responses.
+    pub fn with_retry_config(mut self, config: RetryConfig) -> Self {
+        self.retry_config = config;
+        self
+    }
+
     /// Build the HTTP client.
     pub fn build(self) -> Result<HttpClient, ApiError> {
         let client = reqwest::Client::builder()
@@ -78,7 +116,12 @@ impl HttpClientBuilder {
 
         let base_url = Url::parse(&self.base_url)?;
 
-        Ok(HttpClient { client, base_url })
+        Ok(HttpClient {
+            client,
+            base_url,
+            rate_limiter: self.rate_limiter,
+            retry_config: self.retry_config,
+        })
     }
 }
 
@@ -88,6 +131,102 @@ impl Default for HttpClientBuilder {
             base_url: String::new(),
             timeout_ms: DEFAULT_TIMEOUT_MS,
             pool_size: DEFAULT_POOL_SIZE,
+            rate_limiter: None,
+            retry_config: RetryConfig::default(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── should_retry() ───────────────────────────────────────────
+
+    #[test]
+    fn test_should_retry_429_under_max() {
+        let client = HttpClientBuilder::new("https://example.com")
+            .build()
+            .unwrap();
+        // Default max_retries=3, so attempts 0 and 2 should retry
+        assert!(client
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 0)
+            .is_some());
+        assert!(client
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 2)
+            .is_some());
+    }
+
+    #[test]
+    fn test_should_retry_429_at_max() {
+        let client = HttpClientBuilder::new("https://example.com")
+            .build()
+            .unwrap();
+        // attempt == max_retries → no retry
+        assert!(client
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 3)
+            .is_none());
+    }
+
+    #[test]
+    fn test_should_retry_non_429_returns_none() {
+        let client = HttpClientBuilder::new("https://example.com")
+            .build()
+            .unwrap();
+        for status in [
+            StatusCode::OK,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::BAD_REQUEST,
+            StatusCode::FORBIDDEN,
+        ] {
+            assert!(
+                client.should_retry(status, 0).is_none(),
+                "expected None for {status}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_should_retry_custom_config() {
+        let client = HttpClientBuilder::new("https://example.com")
+            .with_retry_config(RetryConfig {
+                max_retries: 1,
+                ..RetryConfig::default()
+            })
+            .build()
+            .unwrap();
+        assert!(client
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 0)
+            .is_some());
+        assert!(client
+            .should_retry(StatusCode::TOO_MANY_REQUESTS, 1)
+            .is_none());
+    }
+
+    // ── Builder wiring ───────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_builder_with_rate_limiter() {
+        let client = HttpClientBuilder::new("https://example.com")
+            .with_rate_limiter(RateLimiter::clob_default())
+            .build()
+            .unwrap();
+        let start = std::time::Instant::now();
+        client
+            .acquire_rate_limit("/order", Some(&reqwest::Method::POST))
+            .await;
+        assert!(start.elapsed() < Duration::from_millis(50));
+    }
+
+    #[tokio::test]
+    async fn test_builder_without_rate_limiter() {
+        let client = HttpClientBuilder::new("https://example.com")
+            .build()
+            .unwrap();
+        let start = std::time::Instant::now();
+        client
+            .acquire_rate_limit("/order", Some(&reqwest::Method::POST))
+            .await;
+        assert!(start.elapsed() < Duration::from_millis(10));
     }
 }

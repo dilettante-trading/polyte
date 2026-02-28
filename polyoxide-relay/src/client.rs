@@ -12,7 +12,7 @@ use alloy::providers::{Provider, ProviderBuilder};
 use alloy::rpc::types::TransactionRequest;
 use alloy::signers::Signer;
 use alloy::sol_types::{Eip712Domain, SolCall, SolStruct, SolValue};
-use reqwest::Client;
+use polyoxide_core::{HttpClient, HttpClientBuilder, RateLimiter};
 use serde::Serialize;
 use std::time::{Duration, Instant};
 use url::Url;
@@ -27,8 +27,7 @@ const PROXY_INIT_CODE_HASH: &str =
 
 #[derive(Debug, Clone)]
 pub struct RelayClient {
-    client: Client,
-    base_url: Url,
+    http_client: HttpClient,
     chain_id: u64,
     account: Option<BuilderAccount>,
     contract_config: ContractConfig,
@@ -81,8 +80,14 @@ impl RelayClient {
     /// # }
     /// ```
     pub async fn ping(&self) -> Result<Duration, RelayError> {
+        self.http_client.acquire_rate_limit("/", None).await;
         let start = Instant::now();
-        let response = self.client.get(self.base_url.clone()).send().await?;
+        let response = self
+            .http_client
+            .client
+            .get(self.http_client.base_url.clone())
+            .send()
+            .await?;
         let latency = start.elapsed();
 
         if !response.status().is_success() {
@@ -94,12 +99,13 @@ impl RelayClient {
     }
 
     pub async fn get_nonce(&self, address: Address) -> Result<u64, RelayError> {
-        let url = self.base_url.join(&format!(
+        self.http_client.acquire_rate_limit("/nonce", None).await;
+        let url = self.http_client.base_url.join(&format!(
             "nonce?address={}&type={}",
             address,
             self.wallet_type.as_str()
         ))?;
-        let resp = self.client.get(url).send().await?;
+        let resp = self.http_client.client.get(url).send().await?;
 
         if !resp.status().is_success() {
             let text = resp.text().await?;
@@ -114,10 +120,14 @@ impl RelayClient {
         &self,
         transaction_id: &str,
     ) -> Result<TransactionStatusResponse, RelayError> {
+        self.http_client
+            .acquire_rate_limit("/transaction", None)
+            .await;
         let url = self
+            .http_client
             .base_url
             .join(&format!("transaction?id={}", transaction_id))?;
-        let resp = self.client.get(url).send().await?;
+        let resp = self.http_client.client.get(url).send().await?;
 
         if !resp.status().is_success() {
             let text = resp.text().await?;
@@ -134,10 +144,12 @@ impl RelayClient {
         struct DeployedResponse {
             deployed: bool,
         }
+        self.http_client.acquire_rate_limit("/deployed", None).await;
         let url = self
+            .http_client
             .base_url
             .join(&format!("deployed?address={}", safe_address))?;
-        let resp = self.client.get(url).send().await?;
+        let resp = self.http_client.client.get(url).send().await?;
 
         if !resp.status().is_success() {
             let text = resp.text().await?;
@@ -204,10 +216,14 @@ impl RelayClient {
             nonce: u64,
         }
 
+        self.http_client
+            .acquire_rate_limit("/relay-payload", None)
+            .await;
         let url = self
+            .http_client
             .base_url
             .join(&format!("relay-payload?address={}&type=PROXY", address))?;
-        let resp = self.client.get(url).send().await?;
+        let resp = self.http_client.client.get(url).send().await?;
 
         if !resp.status().is_success() {
             let text = resp.text().await?;
@@ -755,7 +771,11 @@ impl RelayClient {
         endpoint: &str,
         body: &T,
     ) -> Result<RelayerTransactionResponse, RelayError> {
-        let url = self.base_url.join(endpoint)?;
+        self.http_client
+            .acquire_rate_limit(&format!("/{}", endpoint), Some(&reqwest::Method::POST))
+            .await;
+
+        let url = self.http_client.base_url.join(endpoint)?;
         let body_str = serde_json::to_string(body)?;
 
         let mut headers = if let Some(account) = &self.account {
@@ -780,6 +800,7 @@ impl RelayClient {
         );
 
         let resp = self
+            .http_client
             .client
             .post(url.clone())
             .headers(headers)
@@ -789,6 +810,10 @@ impl RelayClient {
 
         let status = resp.status();
         tracing::debug!("Response status for {}: {}", endpoint, status);
+
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            return Err(RelayError::RateLimit);
+        }
 
         if !status.is_success() {
             let text = resp.text().await?;
@@ -888,9 +913,12 @@ impl RelayClientBuilder {
         let contract_config = get_contract_config(self.chain_id)
             .ok_or_else(|| RelayError::Api(format!("Unsupported chain ID: {}", self.chain_id)))?;
 
+        let http_client = HttpClientBuilder::new(base_url.as_str())
+            .with_rate_limiter(RateLimiter::relay_default())
+            .build()?;
+
         Ok(RelayClient {
-            client: Client::new(),
-            base_url,
+            http_client,
             chain_id: self.chain_id,
             account: self.account,
             contract_config,

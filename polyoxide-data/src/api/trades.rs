@@ -1,6 +1,4 @@
-use polyoxide_core::{QueryBuilder, Request};
-use reqwest::Client;
-use url::Url;
+use polyoxide_core::{HttpClient, QueryBuilder, Request};
 
 use crate::{
     error::DataApiError,
@@ -10,15 +8,14 @@ use crate::{
 /// Trades namespace for trade-related operations
 #[derive(Clone)]
 pub struct Trades {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl Trades {
     /// List trades with optional filtering
     pub fn list(&self) -> ListTrades {
         ListTrades {
-            request: Request::new(self.client.clone(), self.base_url.clone(), "/trades"),
+            request: Request::new(self.http_client.clone(), "/trades"),
         }
     }
 }

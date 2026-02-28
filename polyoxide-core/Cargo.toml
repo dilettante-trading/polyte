@@ -23,3 +23,5 @@ sha2 = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
+governor = { workspace = true }
+tokio = { workspace = true }

@@ -1,22 +1,18 @@
-use polyoxide_core::RequestError;
-use reqwest::Client;
-use url::Url;
+use polyoxide_core::{HttpClient, RequestError};
 
 use crate::{error::DataApiError, types::OpenInterest};
 
 /// OpenInterest namespace for open interest operations
 #[derive(Clone)]
 pub struct OpenInterestApi {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl OpenInterestApi {
     /// Get open interest for markets
     pub fn get(&self) -> GetOpenInterest {
         GetOpenInterest {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
             markets: None,
         }
     }
@@ -24,8 +20,7 @@ impl OpenInterestApi {
 
 /// Request builder for getting open interest
 pub struct GetOpenInterest {
-    client: Client,
-    base_url: Url,
+    http_client: HttpClient,
     markets: Option<Vec<String>>,
 }
 
@@ -41,8 +36,8 @@ impl GetOpenInterest {
 
     /// Execute the request
     pub async fn send(self) -> Result<Vec<OpenInterest>, DataApiError> {
-        let url = self.base_url.join("/oi")?;
-        let mut request = self.client.get(url);
+        let url = self.http_client.base_url.join("/oi")?;
+        let mut request = self.http_client.client.get(url);
 
         if let Some(markets) = self.markets {
             request = request.query(&[("market", markets.join(","))]);

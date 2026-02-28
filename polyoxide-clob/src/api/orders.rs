@@ -1,6 +1,5 @@
-use reqwest::Client;
+use polyoxide_core::HttpClient;
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 use crate::{
     account::{Credentials, Signer, Wallet},
@@ -12,8 +11,7 @@ use crate::{
 /// Orders namespace for order-related operations
 #[derive(Clone)]
 pub struct Orders {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
     pub(crate) wallet: Wallet,
     pub(crate) credentials: Credentials,
     pub(crate) signer: Signer,
@@ -24,8 +22,7 @@ impl Orders {
     /// List user's orders
     pub fn list(&self) -> Request<Vec<OpenOrder>> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/data/orders",
             AuthMode::L2 {
                 address: self.wallet.address(),
@@ -39,8 +36,7 @@ impl Orders {
     /// Cancel an order
     pub fn cancel(&self, order_id: impl Into<String>) -> CancelOrderRequest {
         CancelOrderRequest {
-            client: self.client.clone(),
-            base_url: self.base_url.clone(),
+            http_client: self.http_client.clone(),
             auth: AuthMode::L2 {
                 address: self.wallet.address(),
                 credentials: self.credentials.clone(),
@@ -54,8 +50,7 @@ impl Orders {
 
 /// Request builder for canceling an order
 pub struct CancelOrderRequest {
-    client: Client,
-    base_url: Url,
+    http_client: HttpClient,
     auth: AuthMode,
     chain_id: u64,
     order_id: String,
@@ -74,16 +69,10 @@ impl CancelOrderRequest {
             order_id: self.order_id,
         };
 
-        Request::delete(
-            self.client,
-            self.base_url,
-            "/order",
-            self.auth,
-            self.chain_id,
-        )
-        .body(&request)?
-        .send()
-        .await
+        Request::delete(self.http_client, "/order", self.auth, self.chain_id)
+            .body(&request)?
+            .send()
+            .await
     }
 }
 

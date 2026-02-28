@@ -1,22 +1,18 @@
-use polyoxide_core::{QueryBuilder, Request};
-use reqwest::Client;
-use url::Url;
+use polyoxide_core::{HttpClient, QueryBuilder, Request};
 
 use crate::{error::GammaError, types::Market};
 
 /// Markets namespace for market-related operations
 #[derive(Clone)]
 pub struct Markets {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl Markets {
     /// Get a specific market by ID
     pub fn get(&self, id: impl Into<String>) -> Request<Market, GammaError> {
         Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             format!("/markets/{}", urlencoding::encode(&id.into())),
         )
     }
@@ -24,8 +20,7 @@ impl Markets {
     /// Get a market by its slug
     pub fn get_by_slug(&self, slug: impl Into<String>) -> Request<Market, GammaError> {
         Request::new(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             format!("/markets/slug/{}", urlencoding::encode(&slug.into())),
         )
     }
@@ -33,7 +28,7 @@ impl Markets {
     /// List markets with optional filtering
     pub fn list(&self) -> ListMarkets {
         ListMarkets {
-            request: Request::new(self.client.clone(), self.base_url.clone(), "/markets"),
+            request: Request::new(self.http_client.clone(), "/markets"),
         }
     }
 }

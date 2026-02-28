@@ -17,6 +17,12 @@ pub enum RelayError {
     #[error("Relayer API error: {0}")]
     Api(String),
 
+    #[error("Rate limit exceeded")]
+    RateLimit,
+
     #[error("Missing signer")]
     MissingSigner,
+
+    #[error("Core API error: {0}")]
+    Core(#[from] polyoxide_core::ApiError),
 }

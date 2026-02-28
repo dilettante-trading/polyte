@@ -1,9 +1,7 @@
 use alloy::primitives::Address;
-use polyoxide_core::QueryBuilder;
-use reqwest::Client;
+use polyoxide_core::{HttpClient, QueryBuilder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use url::Url;
 
 use crate::{
     account::{Credentials, Signer, Wallet},
@@ -14,8 +12,7 @@ use crate::{
 /// Account API namespace for account-related operations
 #[derive(Clone)]
 pub struct AccountApi {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
     pub(crate) wallet: Wallet,
     pub(crate) credentials: Credentials,
     pub(crate) signer: Signer,
@@ -29,8 +26,7 @@ impl AccountApi {
         token_id: impl Into<String>,
     ) -> Request<BalanceAllowanceResponse> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/balance-allowance",
             AuthMode::L2 {
                 address: self.wallet.clone().address(),
@@ -44,8 +40,7 @@ impl AccountApi {
 
     pub fn usdc_balance(&self) -> Request<BalanceAllowanceResponse> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/balance-allowance",
             AuthMode::L2 {
                 address: self.wallet.clone().address(),
@@ -61,8 +56,7 @@ impl AccountApi {
     /// Get trades
     pub fn trades(&self) -> Request<Vec<Trade>> {
         Request::get(
-            self.client.clone(),
-            self.base_url.clone(),
+            self.http_client.clone(),
             "/trades",
             AuthMode::L2 {
                 address: self.wallet.clone().address(),

@@ -30,9 +30,11 @@ pub mod macros;
 pub mod auth;
 pub mod client;
 pub mod error;
+pub mod rate_limit;
 pub mod request;
 
 pub use auth::{current_timestamp, Base64Format, Signer};
 pub use client::{HttpClient, HttpClientBuilder, DEFAULT_POOL_SIZE, DEFAULT_TIMEOUT_MS};
 pub use error::ApiError;
+pub use rate_limit::{RateLimiter, RetryConfig};
 pub use request::{QueryBuilder, Request, RequestError};

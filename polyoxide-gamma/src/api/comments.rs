@@ -1,21 +1,18 @@
-use polyoxide_core::{QueryBuilder, Request};
-use reqwest::Client;
-use url::Url;
+use polyoxide_core::{HttpClient, QueryBuilder, Request};
 
 use crate::{error::GammaError, types::Comment};
 
 /// Comments namespace for comment-related operations
 #[derive(Clone)]
 pub struct Comments {
-    pub(crate) client: Client,
-    pub(crate) base_url: Url,
+    pub(crate) http_client: HttpClient,
 }
 
 impl Comments {
     /// List comments with optional filtering
     pub fn list(&self) -> ListComments {
         ListComments {
-            request: Request::new(self.client.clone(), self.base_url.clone(), "/comments"),
+            request: Request::new(self.http_client.clone(), "/comments"),
         }
     }
 }
