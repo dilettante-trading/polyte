@@ -57,6 +57,18 @@ pub enum CommentsCommand {
 }
 
 impl CommentsCommand {
+    #[allow(dead_code)]
+    fn try_parse(args: &[&str]) -> Result<Self, clap::Error> {
+        use clap::Parser;
+
+        #[derive(Parser)]
+        struct Wrapper {
+            #[command(subcommand)]
+            cmd: CommentsCommand,
+        }
+        Wrapper::try_parse_from(args).map(|w| w.cmd)
+    }
+
     pub async fn run(self, gamma: &Gamma) -> Result<()> {
         match self {
             Self::List {
@@ -97,5 +109,128 @@ impl CommentsCommand {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(args: &[&str]) -> CommentsCommand {
+        CommentsCommand::try_parse(args).unwrap()
+    }
+
+    fn assert_parse_err(args: &[&str]) {
+        assert!(CommentsCommand::try_parse(args).is_err());
+    }
+
+    #[test]
+    fn list_defaults() {
+        let cmd = parse(&["test", "list"]);
+        match cmd {
+            CommentsCommand::List {
+                limit,
+                offset,
+                parent_entity_type,
+                parent_entity_id,
+                get_positions,
+                holders_only,
+                ..
+            } => {
+                assert_eq!(limit, 20);
+                assert_eq!(offset, 0);
+                assert!(parent_entity_type.is_none());
+                assert!(parent_entity_id.is_none());
+                assert!(get_positions.is_none());
+                assert!(holders_only.is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn parent_entity_type_event() {
+        let cmd = parse(&["test", "list", "--parent-entity-type", "event"]);
+        match cmd {
+            CommentsCommand::List {
+                parent_entity_type, ..
+            } => {
+                let pet = parent_entity_type.unwrap();
+                assert!(matches!(pet, ParentEntityType::Event));
+                assert_eq!(pet.as_str(), "Event");
+            }
+        }
+    }
+
+    #[test]
+    fn parent_entity_type_series() {
+        let cmd = parse(&["test", "list", "--parent-entity-type", "series"]);
+        match cmd {
+            CommentsCommand::List {
+                parent_entity_type, ..
+            } => {
+                let pet = parent_entity_type.unwrap();
+                assert!(matches!(pet, ParentEntityType::Series));
+                assert_eq!(pet.as_str(), "Series");
+            }
+        }
+    }
+
+    #[test]
+    fn parent_entity_type_market() {
+        let cmd = parse(&["test", "list", "--parent-entity-type", "market"]);
+        match cmd {
+            CommentsCommand::List {
+                parent_entity_type, ..
+            } => {
+                let pet = parent_entity_type.unwrap();
+                assert!(matches!(pet, ParentEntityType::Market));
+                assert_eq!(pet.as_str(), "Market");
+            }
+        }
+    }
+
+    #[test]
+    fn invalid_parent_entity_type_errors() {
+        assert_parse_err(&["test", "list", "--parent-entity-type", "comment"]);
+    }
+
+    #[test]
+    fn list_with_parent_entity_id() {
+        let cmd = parse(&["test", "list", "--parent-entity-id", "42"]);
+        match cmd {
+            CommentsCommand::List {
+                parent_entity_id, ..
+            } => {
+                assert_eq!(parent_entity_id.unwrap(), 42);
+            }
+        }
+    }
+
+    #[test]
+    fn list_with_boolean_flags() {
+        let cmd = parse(&[
+            "test",
+            "list",
+            "--get-positions",
+            "true",
+            "--holders-only",
+            "false",
+        ]);
+        match cmd {
+            CommentsCommand::List {
+                get_positions,
+                holders_only,
+                ..
+            } => {
+                assert!(get_positions.unwrap());
+                assert!(!holders_only.unwrap());
+            }
+        }
+    }
+
+    #[test]
+    fn list_requires_subcommand() {
+        // No subcommand at all should error
+        assert_parse_err(&["test"]);
     }
 }

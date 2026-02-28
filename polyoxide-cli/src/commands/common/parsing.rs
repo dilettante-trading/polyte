@@ -128,4 +128,118 @@ mod tests {
             parse_activity_types("trade,split,merge,redeem,reward,conversion").unwrap();
         assert_eq!(result.len(), 6);
     }
+
+    // --- parse_comma_separated tests ---
+
+    #[test]
+    fn parse_comma_separated_single_value() {
+        let result = parse_comma_separated("abc").unwrap();
+        assert_eq!(result, vec!["abc"]);
+    }
+
+    #[test]
+    fn parse_comma_separated_multiple_values() {
+        let result = parse_comma_separated("a,b,c").unwrap();
+        assert_eq!(result, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn parse_comma_separated_trims_whitespace() {
+        let result = parse_comma_separated(" a , b , c ").unwrap();
+        assert_eq!(result, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn parse_comma_separated_empty_string() {
+        let result = parse_comma_separated("").unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn parse_comma_separated_trailing_comma() {
+        let result = parse_comma_separated("a,b,").unwrap();
+        assert_eq!(result, vec!["a", "b", ""]);
+    }
+
+    // --- parse_duration tests ---
+
+    #[test]
+    fn parse_duration_seconds_with_unit() {
+        let d = parse_duration("30s").unwrap();
+        assert_eq!(d, Duration::from_secs(30));
+    }
+
+    #[test]
+    fn parse_duration_seconds_without_unit() {
+        let d = parse_duration("45").unwrap();
+        assert_eq!(d, Duration::from_secs(45));
+    }
+
+    #[test]
+    fn parse_duration_milliseconds() {
+        let d = parse_duration("500ms").unwrap();
+        assert_eq!(d, Duration::from_millis(500));
+    }
+
+    #[test]
+    fn parse_duration_minutes() {
+        let d = parse_duration("5m").unwrap();
+        assert_eq!(d, Duration::from_secs(300));
+    }
+
+    #[test]
+    fn parse_duration_hours() {
+        let d = parse_duration("2h").unwrap();
+        assert_eq!(d, Duration::from_secs(7200));
+    }
+
+    #[test]
+    fn parse_duration_trims_whitespace() {
+        let d = parse_duration("  10s  ").unwrap();
+        assert_eq!(d, Duration::from_secs(10));
+    }
+
+    #[test]
+    fn parse_duration_zero() {
+        let d = parse_duration("0s").unwrap();
+        assert_eq!(d, Duration::from_secs(0));
+    }
+
+    #[test]
+    fn parse_duration_empty_string_errors() {
+        let err = parse_duration("").unwrap_err();
+        assert_eq!(err, "empty duration");
+    }
+
+    #[test]
+    fn parse_duration_whitespace_only_errors() {
+        let err = parse_duration("   ").unwrap_err();
+        assert_eq!(err, "empty duration");
+    }
+
+    #[test]
+    fn parse_duration_invalid_number_errors() {
+        let err = parse_duration("abcs").unwrap_err();
+        assert!(err.contains("invalid number"), "got: {err}");
+    }
+
+    #[test]
+    fn parse_duration_negative_number_errors() {
+        let err = parse_duration("-5s").unwrap_err();
+        assert!(err.contains("invalid number"), "got: {err}");
+    }
+
+    #[test]
+    fn parse_duration_float_errors() {
+        let err = parse_duration("1.5s").unwrap_err();
+        assert!(err.contains("invalid number"), "got: {err}");
+    }
+
+    #[test]
+    fn parse_activity_types_empty_string_includes_empty_entry() {
+        // An empty string produces a single empty-trimmed item which is invalid
+        let err = parse_activity_types("").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("Invalid activity type"), "got: {msg}");
+    }
 }

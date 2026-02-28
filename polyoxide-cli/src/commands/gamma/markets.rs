@@ -82,6 +82,19 @@ pub enum MarketsCommand {
 }
 
 impl MarketsCommand {
+    #[allow(dead_code)]
+    fn try_parse(args: &[&str]) -> Result<Self, clap::Error> {
+        use clap::Parser;
+
+        // Wrapper so we can use try_parse_from on a subcommand enum
+        #[derive(Parser)]
+        struct Wrapper {
+            #[command(subcommand)]
+            cmd: MarketsCommand,
+        }
+        Wrapper::try_parse_from(args).map(|w| w.cmd)
+    }
+
     pub async fn run(self, gamma: &Gamma) -> Result<()> {
         match self {
             Self::List {
@@ -166,5 +179,246 @@ impl MarketsCommand {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(args: &[&str]) -> MarketsCommand {
+        MarketsCommand::try_parse(args).unwrap()
+    }
+
+    fn assert_parse_err(args: &[&str]) {
+        assert!(MarketsCommand::try_parse(args).is_err());
+    }
+
+    #[test]
+    fn list_defaults() {
+        let cmd = parse(&["test", "list"]);
+        match cmd {
+            MarketsCommand::List {
+                preset,
+                limit,
+                offset,
+                active,
+                status,
+                liquidity_min,
+                liquidity_max,
+                volume_min,
+                volume_max,
+                sort,
+                order,
+            } => {
+                assert!(preset.is_none());
+                assert_eq!(limit, 20);
+                assert_eq!(offset, 0);
+                assert!(active);
+                assert!(matches!(status, MarketStatus::Open));
+                assert!(liquidity_min.is_none());
+                assert!(liquidity_max.is_none());
+                assert!(volume_min.is_none());
+                assert!(volume_max.is_none());
+                assert!(matches!(sort, SortOrder::Desc));
+                assert!(order.is_none());
+            }
+            _ => panic!("expected List variant"),
+        }
+    }
+
+    #[test]
+    fn list_with_preset_trending() {
+        let cmd = parse(&["test", "list", "--preset", "trending"]);
+        match cmd {
+            MarketsCommand::List { preset, .. } => {
+                assert!(matches!(preset, Some(MarketPreset::Trending)));
+            }
+            _ => panic!("expected List variant"),
+        }
+    }
+
+    #[test]
+    fn list_with_preset_top_volume() {
+        let cmd = parse(&["test", "list", "--preset", "top-volume"]);
+        match cmd {
+            MarketsCommand::List { preset, .. } => {
+                assert!(matches!(preset, Some(MarketPreset::TopVolume)));
+            }
+            _ => panic!("expected List variant"),
+        }
+    }
+
+    #[test]
+    fn list_with_preset_high_liquidity() {
+        let cmd = parse(&["test", "list", "--preset", "high-liquidity"]);
+        match cmd {
+            MarketsCommand::List { preset, .. } => {
+                assert!(matches!(preset, Some(MarketPreset::HighLiquidity)));
+            }
+            _ => panic!("expected List variant"),
+        }
+    }
+
+    #[test]
+    fn list_with_preset_new() {
+        let cmd = parse(&["test", "list", "--preset", "new"]);
+        match cmd {
+            MarketsCommand::List { preset, .. } => {
+                assert!(matches!(preset, Some(MarketPreset::New)));
+            }
+            _ => panic!("expected List variant"),
+        }
+    }
+
+    #[test]
+    fn list_with_preset_competitive() {
+        let cmd = parse(&["test", "list", "--preset", "competitive"]);
+        match cmd {
+            MarketsCommand::List { preset, .. } => {
+                assert!(matches!(preset, Some(MarketPreset::Competitive)));
+            }
+            _ => panic!("expected List variant"),
+        }
+    }
+
+    #[test]
+    fn list_invalid_preset_errors() {
+        assert_parse_err(&["test", "list", "--preset", "nonexistent"]);
+    }
+
+    #[test]
+    fn list_status_closed() {
+        let cmd = parse(&["test", "list", "--status", "closed"]);
+        match cmd {
+            MarketsCommand::List { status, .. } => {
+                assert!(matches!(status, MarketStatus::Closed));
+            }
+            _ => panic!("expected List variant"),
+        }
+    }
+
+    #[test]
+    fn list_status_archived() {
+        let cmd = parse(&["test", "list", "--status", "archived"]);
+        match cmd {
+            MarketsCommand::List { status, .. } => {
+                assert!(matches!(status, MarketStatus::Archived));
+            }
+            _ => panic!("expected List variant"),
+        }
+    }
+
+    #[test]
+    fn list_invalid_status_errors() {
+        assert_parse_err(&["test", "list", "--status", "pending"]);
+    }
+
+    #[test]
+    fn list_sort_asc() {
+        let cmd = parse(&["test", "list", "--sort", "asc"]);
+        match cmd {
+            MarketsCommand::List { sort, .. } => {
+                assert!(matches!(sort, SortOrder::Asc));
+            }
+            _ => panic!("expected List variant"),
+        }
+    }
+
+    #[test]
+    fn list_custom_limit_and_offset() {
+        let cmd = parse(&["test", "list", "-l", "50", "-o", "100"]);
+        match cmd {
+            MarketsCommand::List { limit, offset, .. } => {
+                assert_eq!(limit, 50);
+                assert_eq!(offset, 100);
+            }
+            _ => panic!("expected List variant"),
+        }
+    }
+
+    #[test]
+    fn list_volume_and_liquidity_filters() {
+        let cmd = parse(&[
+            "test",
+            "list",
+            "--volume-min",
+            "1000.5",
+            "--volume-max",
+            "50000",
+            "--liquidity-min",
+            "500",
+            "--liquidity-max",
+            "25000",
+        ]);
+        match cmd {
+            MarketsCommand::List {
+                volume_min,
+                volume_max,
+                liquidity_min,
+                liquidity_max,
+                ..
+            } => {
+                assert_eq!(volume_min.unwrap(), 1000.5);
+                assert_eq!(volume_max.unwrap(), 50000.0);
+                assert_eq!(liquidity_min.unwrap(), 500.0);
+                assert_eq!(liquidity_max.unwrap(), 25000.0);
+            }
+            _ => panic!("expected List variant"),
+        }
+    }
+
+    #[test]
+    fn list_order_field() {
+        let cmd = parse(&["test", "list", "--order", "volume24hr"]);
+        match cmd {
+            MarketsCommand::List { order, .. } => {
+                assert_eq!(order.unwrap(), "volume24hr");
+            }
+            _ => panic!("expected List variant"),
+        }
+    }
+
+    #[test]
+    fn get_requires_id() {
+        assert_parse_err(&["test", "get"]);
+    }
+
+    #[test]
+    fn get_parses_id() {
+        let cmd = parse(&["test", "get", "market-123"]);
+        match cmd {
+            MarketsCommand::Get { id } => assert_eq!(id, "market-123"),
+            _ => panic!("expected Get variant"),
+        }
+    }
+
+    #[test]
+    fn get_by_slug_requires_slug() {
+        assert_parse_err(&["test", "get-by-slug"]);
+    }
+
+    #[test]
+    fn get_by_slug_parses_slug() {
+        let cmd = parse(&["test", "get-by-slug", "my-market-slug"]);
+        match cmd {
+            MarketsCommand::GetBySlug { slug } => assert_eq!(slug, "my-market-slug"),
+            _ => panic!("expected GetBySlug variant"),
+        }
+    }
+
+    #[test]
+    fn list_short_flags() {
+        // -p for preset, -s for status (short flags)
+        let cmd = parse(&["test", "list", "-p", "trending", "-s", "closed"]);
+        match cmd {
+            MarketsCommand::List {
+                preset, status, ..
+            } => {
+                assert!(matches!(preset, Some(MarketPreset::Trending)));
+                assert!(matches!(status, MarketStatus::Closed));
+            }
+            _ => panic!("expected List variant"),
+        }
     }
 }

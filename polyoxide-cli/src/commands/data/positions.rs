@@ -344,3 +344,256 @@ impl From<ActivitySortField> for polyoxide_data::types::ActivitySortBy {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+    use polyoxide_data::types;
+
+    use super::*;
+
+    #[derive(Parser)]
+    struct TestWrapper {
+        #[command(flatten)]
+        cmd: PositionsCommand,
+    }
+
+    fn try_parse(args: &[&str]) -> Result<TestWrapper, clap::Error> {
+        TestWrapper::try_parse_from(args)
+    }
+
+    // --- PositionSortField From conversion tests ---
+
+    #[test]
+    fn position_sort_field_from_current() {
+        let p: types::PositionSortBy = PositionSortField::Current.into();
+        assert!(matches!(p, types::PositionSortBy::Current));
+    }
+
+    #[test]
+    fn position_sort_field_from_initial() {
+        let p: types::PositionSortBy = PositionSortField::Initial.into();
+        assert!(matches!(p, types::PositionSortBy::Initial));
+    }
+
+    #[test]
+    fn position_sort_field_from_tokens() {
+        let p: types::PositionSortBy = PositionSortField::Tokens.into();
+        assert!(matches!(p, types::PositionSortBy::Tokens));
+    }
+
+    #[test]
+    fn position_sort_field_from_cash_pnl() {
+        let p: types::PositionSortBy = PositionSortField::CashPnl.into();
+        assert!(matches!(p, types::PositionSortBy::CashPnl));
+    }
+
+    #[test]
+    fn position_sort_field_from_percent_pnl() {
+        let p: types::PositionSortBy = PositionSortField::PercentPnl.into();
+        assert!(matches!(p, types::PositionSortBy::PercentPnl));
+    }
+
+    #[test]
+    fn position_sort_field_from_title() {
+        let p: types::PositionSortBy = PositionSortField::Title.into();
+        assert!(matches!(p, types::PositionSortBy::Title));
+    }
+
+    #[test]
+    fn position_sort_field_from_resolving() {
+        let p: types::PositionSortBy = PositionSortField::Resolving.into();
+        assert!(matches!(p, types::PositionSortBy::Resolving));
+    }
+
+    #[test]
+    fn position_sort_field_from_price() {
+        let p: types::PositionSortBy = PositionSortField::Price.into();
+        assert!(matches!(p, types::PositionSortBy::Price));
+    }
+
+    #[test]
+    fn position_sort_field_from_avg_price() {
+        let p: types::PositionSortBy = PositionSortField::AvgPrice.into();
+        assert!(matches!(p, types::PositionSortBy::AvgPrice));
+    }
+
+    // --- ClosedPositionSortField From conversion tests ---
+
+    #[test]
+    fn closed_sort_field_from_realized_pnl() {
+        let c: types::ClosedPositionSortBy = ClosedPositionSortField::RealizedPnl.into();
+        assert!(matches!(c, types::ClosedPositionSortBy::RealizedPnl));
+    }
+
+    #[test]
+    fn closed_sort_field_from_timestamp() {
+        let c: types::ClosedPositionSortBy = ClosedPositionSortField::Timestamp.into();
+        assert!(matches!(c, types::ClosedPositionSortBy::Timestamp));
+    }
+
+    // --- ActivitySortField From conversion tests ---
+
+    #[test]
+    fn activity_sort_field_from_timestamp() {
+        let a: types::ActivitySortBy = ActivitySortField::Timestamp.into();
+        assert!(matches!(a, types::ActivitySortBy::Timestamp));
+    }
+
+    #[test]
+    fn activity_sort_field_from_tokens() {
+        let a: types::ActivitySortBy = ActivitySortField::Tokens.into();
+        assert!(matches!(a, types::ActivitySortBy::Tokens));
+    }
+
+    #[test]
+    fn activity_sort_field_from_cash() {
+        let a: types::ActivitySortBy = ActivitySortField::Cash.into();
+        assert!(matches!(a, types::ActivitySortBy::Cash));
+    }
+
+    // --- Argument parsing tests ---
+
+    #[test]
+    fn positions_requires_user_flag() {
+        let result = try_parse(&["test", "list"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn positions_list_defaults() {
+        let w = try_parse(&["test", "--user", "0xabc", "list"]).unwrap();
+        assert_eq!(w.cmd.user, "0xabc");
+        match w.cmd.command {
+            PositionsSubcommand::List {
+                limit,
+                offset,
+                sort_by,
+                sort_direction,
+                redeemable,
+                mergeable,
+                ..
+            } => {
+                assert_eq!(limit, 100);
+                assert_eq!(offset, 0);
+                assert!(matches!(sort_by, PositionSortField::Current));
+                assert!(matches!(sort_direction, super::super::SortOrder::Desc));
+                assert!(!redeemable);
+                assert!(!mergeable);
+            }
+            _ => panic!("expected List"),
+        }
+    }
+
+    #[test]
+    fn positions_list_with_sort_fields() {
+        let w = try_parse(&[
+            "test",
+            "--user",
+            "0xabc",
+            "list",
+            "--sort-by",
+            "cash-pnl",
+            "--sort-direction",
+            "asc",
+        ])
+        .unwrap();
+        match w.cmd.command {
+            PositionsSubcommand::List {
+                sort_by,
+                sort_direction,
+                ..
+            } => {
+                assert!(matches!(sort_by, PositionSortField::CashPnl));
+                assert!(matches!(sort_direction, super::super::SortOrder::Asc));
+            }
+            _ => panic!("expected List"),
+        }
+    }
+
+    #[test]
+    fn positions_list_invalid_sort_by_errors() {
+        let result = try_parse(&[
+            "test",
+            "--user",
+            "0xabc",
+            "list",
+            "--sort-by",
+            "invalid",
+        ]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn positions_list_with_redeemable_flag() {
+        let w = try_parse(&["test", "--user", "0xabc", "list", "--redeemable"]).unwrap();
+        match w.cmd.command {
+            PositionsSubcommand::List { redeemable, .. } => {
+                assert!(redeemable);
+            }
+            _ => panic!("expected List"),
+        }
+    }
+
+    #[test]
+    fn positions_value_parses() {
+        let w = try_parse(&["test", "--user", "0xabc", "value"]).unwrap();
+        assert!(matches!(w.cmd.command, PositionsSubcommand::Value { .. }));
+    }
+
+    #[test]
+    fn positions_closed_defaults() {
+        let w = try_parse(&["test", "--user", "0xabc", "closed"]).unwrap();
+        match w.cmd.command {
+            PositionsSubcommand::Closed {
+                limit,
+                offset,
+                sort_by,
+                ..
+            } => {
+                assert_eq!(limit, 10);
+                assert_eq!(offset, 0);
+                assert!(matches!(sort_by, ClosedPositionSortField::RealizedPnl));
+            }
+            _ => panic!("expected Closed"),
+        }
+    }
+
+    #[test]
+    fn positions_activity_defaults() {
+        let w = try_parse(&["test", "--user", "0xabc", "activity"]).unwrap();
+        match w.cmd.command {
+            PositionsSubcommand::Activity {
+                limit,
+                offset,
+                sort_by,
+                ..
+            } => {
+                assert_eq!(limit, 100);
+                assert_eq!(offset, 0);
+                assert!(matches!(sort_by, ActivitySortField::Timestamp));
+            }
+            _ => panic!("expected Activity"),
+        }
+    }
+
+    #[test]
+    fn positions_activity_with_side_buy() {
+        let w = try_parse(&[
+            "test", "--user", "0xabc", "activity", "--side", "buy",
+        ])
+        .unwrap();
+        match w.cmd.command {
+            PositionsSubcommand::Activity { side, .. } => {
+                assert!(matches!(side.unwrap(), TradeSideFilter::Buy));
+            }
+            _ => panic!("expected Activity"),
+        }
+    }
+
+    #[test]
+    fn positions_requires_subcommand() {
+        let result = try_parse(&["test", "--user", "0xabc"]);
+        assert!(result.is_err());
+    }
+}

@@ -47,3 +47,105 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+
+    use super::Cli;
+
+    /// Helper to try parsing CLI args, returning a Result
+    fn try_parse(args: &[&str]) -> Result<Cli, clap::Error> {
+        Cli::try_parse_from(args)
+    }
+
+    #[test]
+    fn no_subcommand_shows_error() {
+        let result = try_parse(&["polyoxide"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn gamma_subcommand_requires_nested_subcommand() {
+        let result = try_parse(&["polyoxide", "gamma"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn data_subcommand_requires_nested_subcommand() {
+        let result = try_parse(&["polyoxide", "data"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn ws_subcommand_requires_nested_subcommand() {
+        let result = try_parse(&["polyoxide", "ws"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn completions_requires_shell_arg() {
+        let result = try_parse(&["polyoxide", "completions"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn completions_accepts_bash() {
+        let cli = try_parse(&["polyoxide", "completions", "bash"]).unwrap();
+        assert!(matches!(cli.command, super::Commands::Completions(_)));
+    }
+
+    #[test]
+    fn completions_accepts_zsh() {
+        let cli = try_parse(&["polyoxide", "completions", "zsh"]).unwrap();
+        assert!(matches!(cli.command, super::Commands::Completions(_)));
+    }
+
+    #[test]
+    fn completions_accepts_fish() {
+        let cli = try_parse(&["polyoxide", "completions", "fish"]).unwrap();
+        assert!(matches!(cli.command, super::Commands::Completions(_)));
+    }
+
+    #[test]
+    fn completions_rejects_invalid_shell() {
+        let result = try_parse(&["polyoxide", "completions", "invalid"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn invalid_subcommand_errors() {
+        let result = try_parse(&["polyoxide", "nonexistent"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn gamma_markets_list_parses_defaults() {
+        let cli = try_parse(&["polyoxide", "gamma", "markets", "list"]).unwrap();
+        assert!(matches!(cli.command, super::Commands::Gamma { .. }));
+    }
+
+    #[test]
+    fn data_health_parses() {
+        let cli = try_parse(&["polyoxide", "data", "health"]).unwrap();
+        assert!(matches!(cli.command, super::Commands::Data { .. }));
+    }
+
+    #[test]
+    fn ws_market_requires_asset_ids() {
+        let result = try_parse(&["polyoxide", "ws", "market"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn ws_market_parses_with_asset_id() {
+        let cli = try_parse(&["polyoxide", "ws", "market", "some-asset-id"]).unwrap();
+        assert!(matches!(cli.command, super::Commands::Ws { .. }));
+    }
+
+    #[test]
+    fn ws_user_requires_market_ids() {
+        let result = try_parse(&["polyoxide", "ws", "user"]);
+        assert!(result.is_err());
+    }
+}

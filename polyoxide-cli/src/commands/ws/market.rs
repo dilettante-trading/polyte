@@ -220,3 +220,223 @@ fn print_market_summary(msg: &MarketMessage) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+
+    use super::*;
+
+    #[derive(Parser)]
+    struct TestWrapper {
+        #[command(flatten)]
+        args: MarketArgs,
+    }
+
+    fn try_parse(args: &[&str]) -> Result<TestWrapper, clap::Error> {
+        TestWrapper::try_parse_from(args)
+    }
+
+    #[test]
+    fn requires_at_least_one_asset_id() {
+        let result = try_parse(&["test"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parses_single_asset_id() {
+        let w = try_parse(&["test", "asset-1"]).unwrap();
+        assert_eq!(w.args.asset_ids, vec!["asset-1"]);
+    }
+
+    #[test]
+    fn parses_multiple_asset_ids() {
+        let w = try_parse(&["test", "asset-1", "asset-2", "asset-3"]).unwrap();
+        assert_eq!(w.args.asset_ids, vec!["asset-1", "asset-2", "asset-3"]);
+    }
+
+    #[test]
+    fn default_format_is_pretty() {
+        let w = try_parse(&["test", "id"]).unwrap();
+        assert!(matches!(w.args.format, OutputFormat::Pretty));
+    }
+
+    #[test]
+    fn format_json() {
+        let w = try_parse(&["test", "id", "--format", "json"]).unwrap();
+        assert!(matches!(w.args.format, OutputFormat::Json));
+    }
+
+    #[test]
+    fn format_summary() {
+        let w = try_parse(&["test", "id", "--format", "summary"]).unwrap();
+        assert!(matches!(w.args.format, OutputFormat::Summary));
+    }
+
+    #[test]
+    fn invalid_format_errors() {
+        let result = try_parse(&["test", "id", "--format", "xml"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn filter_book() {
+        let w = try_parse(&["test", "id", "--filter", "book"]).unwrap();
+        assert_eq!(w.args.filter, vec![MarketEventType::Book]);
+    }
+
+    #[test]
+    fn filter_multiple() {
+        let w = try_parse(&[
+            "test", "id", "--filter", "book", "--filter", "price",
+        ])
+        .unwrap();
+        assert_eq!(
+            w.args.filter,
+            vec![MarketEventType::Book, MarketEventType::Price]
+        );
+    }
+
+    #[test]
+    fn filter_all_types() {
+        let w = try_parse(&[
+            "test", "id", "--filter", "book", "--filter", "price", "--filter", "trade",
+            "--filter", "tick",
+        ])
+        .unwrap();
+        assert_eq!(w.args.filter.len(), 4);
+    }
+
+    #[test]
+    fn invalid_filter_errors() {
+        let result = try_parse(&["test", "id", "--filter", "invalid"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn count_flag() {
+        let w = try_parse(&["test", "id", "-n", "10"]).unwrap();
+        assert_eq!(w.args.count.unwrap(), 10);
+    }
+
+    #[test]
+    fn timeout_flag() {
+        let w = try_parse(&["test", "id", "--timeout", "30s"]).unwrap();
+        assert_eq!(w.args.timeout.unwrap(), std::time::Duration::from_secs(30));
+    }
+
+    #[test]
+    fn timeout_minutes() {
+        let w = try_parse(&["test", "id", "--timeout", "5m"]).unwrap();
+        assert_eq!(
+            w.args.timeout.unwrap(),
+            std::time::Duration::from_secs(300)
+        );
+    }
+
+    #[test]
+    fn timeout_invalid_errors() {
+        let result = try_parse(&["test", "id", "--timeout", ""]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn truncate_shorter_than_max() {
+        assert_eq!(truncate("hello", 10), "hello");
+    }
+
+    #[test]
+    fn truncate_exact_length() {
+        assert_eq!(truncate("hello", 5), "hello");
+    }
+
+    #[test]
+    fn truncate_longer_than_max() {
+        assert_eq!(truncate("hello world", 5), "hello");
+    }
+
+    #[test]
+    fn truncate_zero_length() {
+        assert_eq!(truncate("hello", 0), "");
+    }
+
+    #[test]
+    fn truncate_empty_string() {
+        assert_eq!(truncate("", 5), "");
+    }
+
+    #[test]
+    fn should_print_no_filters_passes_all() {
+        let channel = Channel::Market(MarketMessage::Book(
+            polyoxide_clob::ws::BookMessage {
+                event_type: "book".to_string(),
+                asset_id: "test".to_string(),
+                market: "test".to_string(),
+                bids: vec![],
+                asks: vec![],
+                hash: "test".to_string(),
+                timestamp: "0".to_string(),
+                last_trade_price: None,
+            },
+        ));
+        assert!(should_print(&channel, &[]));
+    }
+
+    #[test]
+    fn should_print_with_matching_filter() {
+        let channel = Channel::Market(MarketMessage::Book(
+            polyoxide_clob::ws::BookMessage {
+                event_type: "book".to_string(),
+                asset_id: "test".to_string(),
+                market: "test".to_string(),
+                bids: vec![],
+                asks: vec![],
+                hash: "test".to_string(),
+                timestamp: "0".to_string(),
+                last_trade_price: None,
+            },
+        ));
+        assert!(should_print(&channel, &[MarketEventType::Book]));
+    }
+
+    #[test]
+    fn should_print_with_non_matching_filter() {
+        let channel = Channel::Market(MarketMessage::Book(
+            polyoxide_clob::ws::BookMessage {
+                event_type: "book".to_string(),
+                asset_id: "test".to_string(),
+                market: "test".to_string(),
+                bids: vec![],
+                asks: vec![],
+                hash: "test".to_string(),
+                timestamp: "0".to_string(),
+                last_trade_price: None,
+            },
+        ));
+        // Filter asks for Price but message is Book
+        assert!(!should_print(&channel, &[MarketEventType::Price]));
+    }
+
+    #[test]
+    fn should_print_user_channel_on_market_returns_false() {
+        // User channel messages should be rejected by the market should_print
+        // when a filter is active
+        let channel = Channel::User(polyoxide_clob::ws::UserMessage::Order(
+            polyoxide_clob::ws::OrderMessage {
+                event_type: "order".to_string(),
+                id: "test".to_string(),
+                asset_id: "test".to_string(),
+                market: "test".to_string(),
+                outcome: "Yes".to_string(),
+                price: "0.5".to_string(),
+                side: "BUY".to_string(),
+                original_size: "10".to_string(),
+                size_matched: "0".to_string(),
+                order_type: polyoxide_clob::ws::OrderEventType::Placement,
+                order_owner: Some("0x123".to_string()),
+                timestamp: "123".to_string(),
+            },
+        ));
+        assert!(!should_print(&channel, &[MarketEventType::Book]));
+    }
+}
