@@ -16,8 +16,8 @@ pub enum ApiError {
     Validation(String),
 
     /// Rate limit exceeded (429)
-    #[error("Rate limit exceeded")]
-    RateLimit,
+    #[error("Rate limit exceeded: {0}")]
+    RateLimit(String),
 
     /// Request timeout
     #[error("Request timeout")]
@@ -43,7 +43,7 @@ impl ApiError {
 
         // Get the raw response text first for debugging
         let body_text = response.text().await.unwrap_or_default();
-        tracing::error!("API error response body: {}", body_text);
+        tracing::debug!("API error response body: {}", body_text);
 
         let message = serde_json::from_str::<serde_json::Value>(&body_text)
             .ok()
@@ -58,9 +58,31 @@ impl ApiError {
         match status {
             401 | 403 => Self::Authentication(message),
             400 => Self::Validation(message),
-            429 => Self::RateLimit,
+            429 => Self::RateLimit(message),
             408 => Self::Timeout,
             _ => Self::Api { status, message },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rate_limit_error_carries_message() {
+        let err = ApiError::RateLimit("too many requests, retry after 5s".to_string());
+        let display = format!("{}", err);
+        assert!(
+            display.contains("too many requests"),
+            "RateLimit display should contain the message: {}",
+            display
+        );
+    }
+
+    #[test]
+    fn test_rate_limit_error_display_format() {
+        let err = ApiError::RateLimit("slow down".to_string());
+        assert_eq!(format!("{}", err), "Rate limit exceeded: slow down");
     }
 }
