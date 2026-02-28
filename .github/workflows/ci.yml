@@ -7,8 +7,11 @@ on:
     branches: [main]
 
 env:
+  CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 
 jobs:
   format:
@@ -29,7 +32,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: mozilla-actions/sccache-action@v0.0.9
+        with:
+          version: "v0.14.0"
       - run: cargo clippy --all-targets --all-features -- -D warnings
 
   test:
@@ -38,7 +43,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: mozilla-actions/sccache-action@v0.0.9
+        with:
+          version: "v0.14.0"
       - run: cargo test --all-features --workspace
 
   build:
@@ -47,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: mozilla-actions/sccache-action@v0.0.9
         with:
-          cache-on-failure: true
+          version: "v0.14.0"
       - run: cargo build --release --all-features --workspace
