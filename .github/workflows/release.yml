@@ -78,114 +78,33 @@ jobs:
       - name: Login to crates.io
         run: cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
-      # Publish order based on dependency graph:
-      # 1. polyoxide-core (no internal deps)
-      # 2. polyoxide-relay (no internal deps)
-      # 3. polyoxide-gamma (depends on core)
-      # 4. polyoxide-data (depends on core)
-      # 5. polyoxide-clob (depends on core, gamma)
-      # 6. polyoxide (depends on gamma, clob, data)
-
-      - name: Publish polyoxide-core
-        continue-on-error: true
+      # Publish in dependency order: core -> relay -> gamma -> data -> clob -> polyoxide
+      - name: Publish crates to crates.io
         run: |
-          cd polyoxide-core
-          VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/' || echo "")
-          if [ -z "$VERSION" ] || [ "$VERSION" = "{" ]; then
-            VERSION=$(grep -m1 '^version' ../Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
-          fi
-          PUBLISHED=$(cargo search polyoxide-core --limit 1 | grep -oP 'polyoxide-core = "\K[^"]+' || echo "0.0.0")
-          if [ "$VERSION" != "$PUBLISHED" ]; then
-            echo "Publishing polyoxide-core $VERSION (current: $PUBLISHED)"
-            cargo publish --no-verify
-          else
-            echo "polyoxide-core $VERSION already published"
-          fi
+          VERSION="${{ needs.version.outputs.version }}"
+          CRATES=("polyoxide-core" "polyoxide-relay" "polyoxide-gamma" "polyoxide-data" "polyoxide-clob" "polyoxide")
 
-      - name: Publish polyoxide-relay
-        continue-on-error: true
-        run: |
-          cd polyoxide-relay
-          VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/' || echo "")
-          if [ -z "$VERSION" ] || [ "$VERSION" = "{" ]; then
-            VERSION=$(grep -m1 '^version' ../Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
-          fi
-          PUBLISHED=$(cargo search polyoxide-relay --limit 1 | grep -oP 'polyoxide-relay = "\K[^"]+' || echo "0.0.0")
-          if [ "$VERSION" != "$PUBLISHED" ]; then
-            echo "Publishing polyoxide-relay $VERSION (current: $PUBLISHED)"
-            sleep 10
-            cargo publish --no-verify
-          else
-            echo "polyoxide-relay $VERSION already published"
-          fi
+          for crate in "${CRATES[@]}"; do
+            PUBLISHED=$(cargo search "$crate" --limit 1 | grep -oP "$crate = \"\K[^\"]+" || echo "0.0.0")
+            if [ "$VERSION" = "$PUBLISHED" ]; then
+              echo "$crate $VERSION already published, skipping"
+              continue
+            fi
 
-      - name: Publish polyoxide-gamma
-        continue-on-error: true
-        run: |
-          cd polyoxide-gamma
-          VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/' || echo "")
-          if [ -z "$VERSION" ] || [ "$VERSION" = "{" ]; then
-            VERSION=$(grep -m1 '^version' ../Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
-          fi
-          PUBLISHED=$(cargo search polyoxide-gamma --limit 1 | grep -oP 'polyoxide-gamma = "\K[^"]+' || echo "0.0.0")
-          if [ "$VERSION" != "$PUBLISHED" ]; then
-            echo "Publishing polyoxide-gamma $VERSION (current: $PUBLISHED)"
-            sleep 10
-            cargo publish --no-verify
-          else
-            echo "polyoxide-gamma $VERSION already published"
-          fi
-
-      - name: Publish polyoxide-data
-        continue-on-error: true
-        run: |
-          cd polyoxide-data
-          VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/' || echo "")
-          if [ -z "$VERSION" ] || [ "$VERSION" = "{" ]; then
-            VERSION=$(grep -m1 '^version' ../Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
-          fi
-          PUBLISHED=$(cargo search polyoxide-data --limit 1 | grep -oP 'polyoxide-data = "\K[^"]+' || echo "0.0.0")
-          if [ "$VERSION" != "$PUBLISHED" ]; then
-            echo "Publishing polyoxide-data $VERSION (current: $PUBLISHED)"
-            sleep 10
-            cargo publish --no-verify
-          else
-            echo "polyoxide-data $VERSION already published"
-          fi
-
-      - name: Publish polyoxide-clob
-        continue-on-error: true
-        run: |
-          cd polyoxide-clob
-          VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/' || echo "")
-          if [ -z "$VERSION" ] || [ "$VERSION" = "{" ]; then
-            VERSION=$(grep -m1 '^version' ../Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
-          fi
-          PUBLISHED=$(cargo search polyoxide-clob --limit 1 | grep -oP 'polyoxide-clob = "\K[^"]+' || echo "0.0.0")
-          if [ "$VERSION" != "$PUBLISHED" ]; then
-            echo "Publishing polyoxide-clob $VERSION (current: $PUBLISHED)"
-            sleep 10
-            cargo publish --no-verify
-          else
-            echo "polyoxide-clob $VERSION already published"
-          fi
-
-      - name: Publish polyoxide
-        continue-on-error: true
-        run: |
-          cd polyoxide
-          VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/' || echo "")
-          if [ -z "$VERSION" ] || [ "$VERSION" = "{" ]; then
-            VERSION=$(grep -m1 '^version' ../Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
-          fi
-          PUBLISHED=$(cargo search polyoxide --limit 1 | grep -oP 'polyoxide = "\K[^"]+' || echo "0.0.0")
-          if [ "$VERSION" != "$PUBLISHED" ]; then
-            echo "Publishing polyoxide $VERSION (current: $PUBLISHED)"
-            sleep 10
-            cargo publish --no-verify
-          else
-            echo "polyoxide $VERSION already published"
-          fi
+            echo "Publishing $crate $VERSION (current: $PUBLISHED)"
+            for attempt in $(seq 1 6); do
+              if cargo publish -p "$crate" --no-verify 2>&1; then
+                echo "$crate $VERSION published successfully"
+                break
+              fi
+              if [ "$attempt" -eq 6 ]; then
+                echo "::error::Failed to publish $crate after 6 attempts"
+                exit 1
+              fi
+              echo "Attempt $attempt failed, retrying in 5s..."
+              sleep 5
+            done
+          done
 
   build-cli:
     name: Build CLI (${{ matrix.target }})
