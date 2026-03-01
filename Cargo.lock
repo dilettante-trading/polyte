@@ -2781,7 +2781,7 @@ dependencies = [
 
 [[package]]
 name = "polyoxide"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "polyoxide-clob",
  "polyoxide-data",
@@ -2792,7 +2792,7 @@ dependencies = [
 
 [[package]]
 name = "polyoxide-cli"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "clap",
  "clap_complete",
@@ -2808,7 +2808,7 @@ dependencies = [
 
 [[package]]
 name = "polyoxide-clob"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "alloy",
  "dotenvy",
@@ -2833,7 +2833,7 @@ dependencies = [
 
 [[package]]
 name = "polyoxide-core"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "base64",
  "fastrand",
@@ -2851,7 +2851,7 @@ dependencies = [
 
 [[package]]
 name = "polyoxide-data"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "polyoxide-core",
  "reqwest",
@@ -2865,7 +2865,7 @@ dependencies = [
 
 [[package]]
 name = "polyoxide-gamma"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "chrono",
  "polyoxide-core",
@@ -2882,7 +2882,7 @@ dependencies = [
 
 [[package]]
 name = "polyoxide-relay"
-version = "0.9.1"
+version = "0.9.2"
 dependencies = [
  "alloy",
  "dotenvy",

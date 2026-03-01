@@ -1,3 +1,17 @@
+## [0.9.2] - 2026-03-01
+
+### 🚀 Features
+
+- *(core)* Parse `Retry-After` header for server-guided backoff delays
+- *(core)* Expose `RetryConfig` through all high-level client builders (`Clob`, `Gamma`, `DataApi`, `RelayClient`)
+
+### 🐛 Bug Fixes
+
+- *(core)* Add segment-boundary-aware endpoint matching to prevent `/price` from matching `/prices-history`
+- *(core)* Replace `SystemTime` nanos with `fastrand` for uniform backoff jitter
+- *(clob)* Generate fresh L1 auth timestamp on each retry to avoid staleness
+- *(relay)* Add retry loops with 429 handling to all relay endpoints
+
 ## [0.9.1] - 2026-02-28
 
 ### ⚙️ Miscellaneous Tasks
