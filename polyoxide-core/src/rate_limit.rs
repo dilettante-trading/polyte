@@ -82,9 +82,7 @@ impl RateLimiter {
                     // "/price" should match "/price" and "/price/foo" but not "/prices-history".
                     match path.strip_prefix(limit.path_prefix) {
                         Some(rest) => {
-                            rest.is_empty()
-                                || rest.starts_with('/')
-                                || rest.starts_with('?')
+                            rest.is_empty() || rest.starts_with('/') || rest.starts_with('?')
                         }
                         None => false,
                     }
@@ -745,9 +743,7 @@ mod tests {
         let (r1, r2, r3) = tokio::join!(
             tokio::spawn(async move { rl1.acquire("/markets", None).await }),
             tokio::spawn(async move { rl2.acquire("/auth", None).await }),
-            tokio::spawn(
-                async move { rl3.acquire("/order", Some(&Method::POST)).await }
-            ),
+            tokio::spawn(async move { rl3.acquire("/order", Some(&Method::POST)).await }),
         );
         r1.unwrap();
         r2.unwrap();

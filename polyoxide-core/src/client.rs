@@ -58,7 +58,9 @@ impl HttpClient {
         if status == StatusCode::TOO_MANY_REQUESTS && attempt < self.retry_config.max_retries {
             if let Some(delay) = retry_after.and_then(|v| v.parse::<f64>().ok()) {
                 let ms = (delay * 1000.0) as u64;
-                Some(Duration::from_millis(ms.min(self.retry_config.max_backoff_ms)))
+                Some(Duration::from_millis(
+                    ms.min(self.retry_config.max_backoff_ms),
+                ))
             } else {
                 Some(self.retry_config.backoff(attempt))
             }

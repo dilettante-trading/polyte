@@ -133,7 +133,8 @@ impl<T: DeserializeOwned, E: RequestError> Request<T, E> {
             let status = response.status();
             let retry_after = retry_after_header(&response);
 
-            if let Some(backoff) = http_client.should_retry(status, attempt, retry_after.as_deref()) {
+            if let Some(backoff) = http_client.should_retry(status, attempt, retry_after.as_deref())
+            {
                 attempt += 1;
                 tracing::warn!(
                     "Rate limited (429) on {}, retry {} after {}ms",
