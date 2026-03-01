@@ -640,4 +640,220 @@ mod tests {
         rl.acquire("/events", None).await;
         assert!(start.elapsed() < Duration::from_millis(50));
     }
+
+    // ── Prefix collision tests ──────────────────────────────────
+
+    #[test]
+    fn test_clob_price_and_prices_history_are_distinct() {
+        let rl = RateLimiter::clob_default();
+        let limits = &rl.inner.limits;
+
+        let price = limits.iter().find(|l| l.path_prefix == "/price").unwrap();
+        let prices_history = limits
+            .iter()
+            .find(|l| l.path_prefix == "/prices-history")
+            .unwrap();
+
+        // Both should use Prefix mode
+        assert_eq!(price.match_mode, MatchMode::Prefix);
+        assert_eq!(prices_history.match_mode, MatchMode::Prefix);
+
+        // Verify "/prices-history" does NOT match the "/price" pattern
+        if let Some(rest) = "/prices-history".strip_prefix(price.path_prefix) {
+            assert!(
+                !rest.is_empty() && !rest.starts_with('/') && !rest.starts_with('?'),
+                "/prices-history must not match /price pattern, rest = '{rest}'"
+            );
+        }
+    }
+
+    #[test]
+    fn test_data_positions_and_closed_positions_are_distinct() {
+        let rl = RateLimiter::data_default();
+        let limits = &rl.inner.limits;
+
+        let positions = limits
+            .iter()
+            .find(|l| l.path_prefix == "/positions")
+            .unwrap();
+        let closed = limits
+            .iter()
+            .find(|l| l.path_prefix == "/closed-positions")
+            .unwrap();
+
+        assert_eq!(positions.match_mode, MatchMode::Prefix);
+        assert_eq!(closed.match_mode, MatchMode::Prefix);
+
+        // "/closed-positions" does NOT start with "/positions"
+        assert!(
+            !"/closed-positions".starts_with(positions.path_prefix),
+            "/closed-positions should not match /positions prefix"
+        );
+    }
+
+    #[test]
+    fn test_all_clob_endpoints_have_match_mode() {
+        let rl = RateLimiter::clob_default();
+        for limit in &rl.inner.limits {
+            // Every endpoint should have an explicit match mode
+            assert!(
+                limit.match_mode == MatchMode::Prefix || limit.match_mode == MatchMode::Exact,
+                "endpoint {} has no valid match mode",
+                limit.path_prefix
+            );
+        }
+    }
+
+    // ── Concurrent access tests ─────────────────────────────────
+
+    #[tokio::test]
+    async fn test_acquire_concurrent_tasks_all_complete() {
+        // A rate limiter with high burst should allow many concurrent acquires
+        let rl = RateLimiter::clob_default(); // 9000/10s general
+        let rl = std::sync::Arc::new(rl);
+
+        let mut handles = Vec::new();
+        for _ in 0..10 {
+            let rl = rl.clone();
+            handles.push(tokio::spawn(async move {
+                rl.acquire("/markets", None).await;
+            }));
+        }
+
+        let start = std::time::Instant::now();
+        for handle in handles {
+            handle.await.unwrap();
+        }
+        // 10 concurrent acquires against a 9000/10s limiter should complete fast
+        assert!(
+            start.elapsed() < Duration::from_millis(100),
+            "concurrent acquires took too long: {:?}",
+            start.elapsed()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_acquire_concurrent_different_endpoints() {
+        // Concurrent tasks hitting different endpoints should not block each other
+        let rl = std::sync::Arc::new(RateLimiter::clob_default());
+
+        let rl1 = rl.clone();
+        let rl2 = rl.clone();
+        let rl3 = rl.clone();
+
+        let start = std::time::Instant::now();
+        let (r1, r2, r3) = tokio::join!(
+            tokio::spawn(async move { rl1.acquire("/markets", None).await }),
+            tokio::spawn(async move { rl2.acquire("/auth", None).await }),
+            tokio::spawn(
+                async move { rl3.acquire("/order", Some(&Method::POST)).await }
+            ),
+        );
+        r1.unwrap();
+        r2.unwrap();
+        r3.unwrap();
+
+        assert!(
+            start.elapsed() < Duration::from_millis(50),
+            "different endpoints should not block: {:?}",
+            start.elapsed()
+        );
+    }
+
+    // ── Dual-window interaction tests ───────────────────────────
+
+    #[test]
+    fn test_clob_post_order_has_dual_window() {
+        let rl = RateLimiter::clob_default();
+        let post_order = rl
+            .inner
+            .limits
+            .iter()
+            .find(|l| l.path_prefix == "/order" && l.method == Some(Method::POST))
+            .expect("POST /order endpoint should exist");
+
+        assert!(
+            post_order.sustained.is_some(),
+            "POST /order should have a sustained (10-min) window"
+        );
+    }
+
+    #[test]
+    fn test_clob_delete_order_has_no_sustained_window() {
+        let rl = RateLimiter::clob_default();
+        let delete_order = rl
+            .inner
+            .limits
+            .iter()
+            .find(|l| l.path_prefix == "/order" && l.method == Some(Method::DELETE))
+            .expect("DELETE /order endpoint should exist");
+
+        assert!(
+            delete_order.sustained.is_none(),
+            "DELETE /order should only have a burst window"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_dual_window_both_burst_and_sustained_are_awaited() {
+        // POST /order should await both burst and sustained limiters.
+        // With high limits, a single acquire should still complete fast.
+        let rl = RateLimiter::clob_default();
+        let start = std::time::Instant::now();
+        rl.acquire("/order", Some(&Method::POST)).await;
+        assert!(
+            start.elapsed() < Duration::from_millis(50),
+            "dual window single acquire should be fast: {:?}",
+            start.elapsed()
+        );
+    }
+
+    // ── should_retry edge cases ─────────────────────────────────
+
+    #[test]
+    fn test_should_retry_exhaustion() {
+        // After max_retries, should_retry must return None
+        let client = crate::HttpClientBuilder::new("https://example.com")
+            .with_retry_config(RetryConfig {
+                max_retries: 3,
+                ..RetryConfig::default()
+            })
+            .build()
+            .unwrap();
+
+        // Attempts 0, 1, 2 should succeed
+        for attempt in 0..3 {
+            assert!(
+                client
+                    .should_retry(reqwest::StatusCode::TOO_MANY_REQUESTS, attempt, None)
+                    .is_some(),
+                "attempt {attempt} should allow retry"
+            );
+        }
+        // Attempt 3 should give up
+        assert!(
+            client
+                .should_retry(reqwest::StatusCode::TOO_MANY_REQUESTS, 3, None)
+                .is_none(),
+            "attempt 3 should exhaust retries"
+        );
+    }
+
+    #[test]
+    fn test_should_retry_zero_max_retries_never_retries() {
+        let client = crate::HttpClientBuilder::new("https://example.com")
+            .with_retry_config(RetryConfig {
+                max_retries: 0,
+                ..RetryConfig::default()
+            })
+            .build()
+            .unwrap();
+
+        assert!(
+            client
+                .should_retry(reqwest::StatusCode::TOO_MANY_REQUESTS, 0, None)
+                .is_none(),
+            "max_retries=0 should never retry"
+        );
+    }
 }
