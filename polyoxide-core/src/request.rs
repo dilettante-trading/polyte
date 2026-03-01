@@ -99,7 +99,7 @@ impl<T: DeserializeOwned, E: RequestError> Request<T, E> {
         // Deserialize and provide better error context
         serde_json::from_str(&text).map_err(|e| {
             tracing::error!("Deserialization failed: {}", e);
-            tracing::error!("Failed to deserialize: {}", text);
+            tracing::error!("Failed to deserialize: {}", crate::truncate_for_log(&text));
             E::from(ApiError::from(e))
         })
     }

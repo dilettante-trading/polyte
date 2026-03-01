@@ -933,7 +933,7 @@ impl RelayClient {
                     "Request to {} failed with status {}: {}",
                     endpoint,
                     status,
-                    text
+                    polyoxide_core::truncate_for_log(&text)
                 );
                 return Err(RelayError::Api(format!("Request failed: {}", text)));
             }
@@ -946,7 +946,7 @@ impl RelayClient {
                     "Failed to decode response from {}: {}. Raw body: {}",
                     endpoint,
                     e,
-                    response_text
+                    polyoxide_core::truncate_for_log(&response_text)
                 );
                 RelayError::SerdeJson(e)
             });

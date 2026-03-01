@@ -16,7 +16,7 @@ edition = "2021"
 license = "MIT"
 authors = ["Aidan Bailey"]
 repository = "https://github.com/dilettante-trading/polyoxide"
-rust-version = "1.75"
+rust-version = "1.91"
 
 [workspace.dependencies]
 polyoxide-core = { path = "polyoxide-core", version = "0.9.2" }

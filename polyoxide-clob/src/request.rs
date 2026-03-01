@@ -118,7 +118,10 @@ impl<T: DeserializeOwned> Request<T> {
         // Deserialize and provide better error context
         serde_json::from_str(&text).map_err(|e| {
             tracing::error!("Deserialization failed: {}", e);
-            tracing::error!("Failed to deserialize: {}", text);
+            tracing::error!(
+                "Failed to deserialize: {}",
+                polyoxide_core::truncate_for_log(&text)
+            );
             e.into()
         })
     }
