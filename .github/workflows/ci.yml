@@ -36,5 +36,7 @@ jobs:
       - uses: mozilla-actions/sccache-action@v0.0.9
         with:
           version: "v0.14.0"
+      - uses: taiki-e/install-action@nextest
       - run: cargo clippy --all-targets --all-features -- -D warnings
-      - run: cargo test --all-features --workspace
+      - run: cargo nextest run --all-features --workspace
+      - run: cargo test --doc --all-features --workspace
