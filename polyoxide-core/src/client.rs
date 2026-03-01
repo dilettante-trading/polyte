@@ -138,6 +138,8 @@ impl HttpClientBuilder {
     pub fn build(self) -> Result<HttpClient, ApiError> {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_millis(self.timeout_ms))
+            .connect_timeout(Duration::from_secs(10))
+            .redirect(reqwest::redirect::Policy::none())
             .pool_max_idle_per_host(self.pool_size)
             .build()?;
 
