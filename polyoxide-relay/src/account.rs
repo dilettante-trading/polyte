@@ -3,10 +3,19 @@ use crate::error::RelayError;
 use alloy::primitives::Address;
 use alloy::signers::local::PrivateKeySigner;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct BuilderAccount {
     pub(crate) signer: PrivateKeySigner,
     pub(crate) config: Option<BuilderConfig>,
+}
+
+impl std::fmt::Debug for BuilderAccount {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BuilderAccount")
+            .field("address", &self.signer.address())
+            .field("config", &self.config)
+            .finish()
+    }
 }
 
 impl BuilderAccount {
@@ -95,6 +104,20 @@ mod tests {
             .parse()
             .unwrap();
         assert_eq!(account.address(), expected);
+    }
+
+    #[test]
+    fn test_debug_redacts_private_key() {
+        let account = BuilderAccount::new(TEST_PRIVATE_KEY, None).unwrap();
+        let debug_output = format!("{:?}", account);
+        assert!(
+            debug_output.contains("address"),
+            "Debug should show address, got: {debug_output}"
+        );
+        assert!(
+            !debug_output.contains(TEST_PRIVATE_KEY),
+            "Debug should not contain the private key, got: {debug_output}"
+        );
     }
 
     #[test]

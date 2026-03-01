@@ -30,11 +30,20 @@ pub mod env {
 }
 
 /// Account configuration for file-based loading
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AccountConfig {
     pub private_key: String,
     #[serde(flatten)]
     pub credentials: Credentials,
+}
+
+impl std::fmt::Debug for AccountConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AccountConfig")
+            .field("private_key", &"[REDACTED]")
+            .field("credentials", &self.credentials)
+            .finish()
+    }
 }
 
 /// Unified account primitive for credential management and signing operations.
@@ -300,6 +309,27 @@ mod tests {
         let account = Account::from_json(json).unwrap();
         assert_eq!(account.credentials().key, "test_key");
         assert_eq!(account.credentials().passphrase, "test_pass");
+    }
+
+    #[test]
+    fn test_account_config_debug_redacts_private_key() {
+        let config = AccountConfig {
+            private_key: "0xdeadbeef_super_secret_key".to_string(),
+            credentials: Credentials {
+                key: "api_key".to_string(),
+                secret: "api_secret".to_string(),
+                passphrase: "pass".to_string(),
+            },
+        };
+        let debug_output = format!("{:?}", config);
+        assert!(
+            debug_output.contains("[REDACTED]"),
+            "Debug should contain [REDACTED], got: {debug_output}"
+        );
+        assert!(
+            !debug_output.contains("deadbeef"),
+            "Debug should not contain the private key, got: {debug_output}"
+        );
     }
 
     #[test]
