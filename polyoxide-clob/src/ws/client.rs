@@ -237,15 +237,31 @@ impl WebSocketBuilder {
     }
 
     /// Set a custom WebSocket URL for market channel.
-    pub fn market_url(mut self, url: impl Into<String>) -> Self {
-        self.market_url = url.into();
-        self
+    ///
+    /// Only `wss://` URLs are accepted to prevent plaintext connections.
+    pub fn market_url(mut self, url: impl Into<String>) -> Result<Self, WebSocketError> {
+        let url = url.into();
+        if !url.starts_with("wss://") {
+            return Err(WebSocketError::InvalidMessage(
+                "WebSocket URL must use wss:// scheme".to_string(),
+            ));
+        }
+        self.market_url = url;
+        Ok(self)
     }
 
     /// Set a custom WebSocket URL for user channel.
-    pub fn user_url(mut self, url: impl Into<String>) -> Self {
-        self.user_url = url.into();
-        self
+    ///
+    /// Only `wss://` URLs are accepted to prevent plaintext connections.
+    pub fn user_url(mut self, url: impl Into<String>) -> Result<Self, WebSocketError> {
+        let url = url.into();
+        if !url.starts_with("wss://") {
+            return Err(WebSocketError::InvalidMessage(
+                "WebSocket URL must use wss:// scheme".to_string(),
+            ));
+        }
+        self.user_url = url;
+        Ok(self)
     }
 
     /// Set the ping interval for keep-alive messages.
@@ -424,5 +440,46 @@ impl WebSocketWithPing {
                 Ok(Some(Channel::User(msg)))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_builder_default_urls_are_wss() {
+        let builder = WebSocketBuilder::new();
+        assert!(builder.market_url.starts_with("wss://"));
+        assert!(builder.user_url.starts_with("wss://"));
+    }
+
+    #[test]
+    fn test_builder_accepts_wss_url() {
+        let builder = WebSocketBuilder::new()
+            .market_url("wss://custom.example.com/ws/market")
+            .unwrap()
+            .user_url("wss://custom.example.com/ws/user")
+            .unwrap();
+        assert_eq!(builder.market_url, "wss://custom.example.com/ws/market");
+        assert_eq!(builder.user_url, "wss://custom.example.com/ws/user");
+    }
+
+    #[test]
+    fn test_builder_rejects_ws_url() {
+        let result = WebSocketBuilder::new().market_url("ws://insecure.example.com/ws");
+        assert!(result.is_err());
+
+        let result = WebSocketBuilder::new().user_url("ws://insecure.example.com/ws");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_builder_rejects_http_url() {
+        let result = WebSocketBuilder::new().market_url("http://example.com/ws");
+        assert!(result.is_err());
+
+        let result = WebSocketBuilder::new().user_url("https://example.com/ws");
+        assert!(result.is_err());
     }
 }

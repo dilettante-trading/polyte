@@ -1,3 +1,8 @@
 target
 
+# Secrets and credentials
 .env
+.env.*
+*.pem
+*.key
+account.json
