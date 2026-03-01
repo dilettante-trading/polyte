@@ -9,6 +9,7 @@ on:
 env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
+  CARGO_PROFILE_TEST_DEBUG: 0
   RUST_BACKTRACE: 1
   SCCACHE_GHA_ENABLED: "true"
   RUSTC_WRAPPER: "sccache"
@@ -24,8 +25,8 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all -- --check
 
-  lint:
-    name: Lint
+  check:
+    name: Lint & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,25 +37,4 @@ jobs:
         with:
           version: "v0.14.0"
       - run: cargo clippy --all-targets --all-features -- -D warnings
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: mozilla-actions/sccache-action@v0.0.9
-        with:
-          version: "v0.14.0"
       - run: cargo test --all-features --workspace
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: mozilla-actions/sccache-action@v0.0.9
-        with:
-          version: "v0.14.0"
-      - run: cargo build --release --all-features --workspace
