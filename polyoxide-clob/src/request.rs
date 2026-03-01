@@ -17,7 +17,6 @@ pub enum AuthMode {
     L1 {
         wallet: Wallet,
         nonce: u32,
-        timestamp: u64,
     },
     L2 {
         address: Address,
@@ -209,14 +208,12 @@ async fn add_auth_headers(
 ) -> Result<reqwest::RequestBuilder, ClobError> {
     match auth {
         AuthMode::None => Ok(request),
-        AuthMode::L1 {
-            wallet,
-            nonce,
-            timestamp,
-        } => {
+        AuthMode::L1 { wallet, nonce } => {
             use crate::core::eip712::sign_clob_auth;
 
-            let signature = sign_clob_auth(wallet.signer(), chain_id, *timestamp, *nonce).await?;
+            // Fresh timestamp on each attempt to avoid staleness after retry backoff
+            let timestamp = current_timestamp();
+            let signature = sign_clob_auth(wallet.signer(), chain_id, timestamp, *nonce).await?;
 
             request = request
                 .header("POLY_ADDRESS", format!("{:?}", wallet.address()))

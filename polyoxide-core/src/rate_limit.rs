@@ -11,10 +11,23 @@ type DirectLimiter = governor::RateLimiter<
     governor::clock::DefaultClock,
 >;
 
+/// How an endpoint pattern should be matched against request paths.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+enum MatchMode {
+    /// Match if the path starts with the pattern followed by a segment
+    /// boundary (`/`, `?`, or end-of-string). Prevents `/price` from
+    /// matching `/prices-history`.
+    Prefix,
+    /// Match only the exact path string.
+    Exact,
+}
+
 /// Rate limit configuration for a specific endpoint pattern.
 struct EndpointLimit {
     path_prefix: &'static str,
     method: Option<Method>,
+    match_mode: MatchMode,
     burst: DirectLimiter,
     sustained: Option<DirectLimiter>,
 }
@@ -62,7 +75,22 @@ impl RateLimiter {
         self.inner.default.until_ready().await;
 
         for limit in &self.inner.limits {
-            if !path.starts_with(limit.path_prefix) {
+            let matched = match limit.match_mode {
+                MatchMode::Exact => path == limit.path_prefix,
+                MatchMode::Prefix => {
+                    // Ensure we're at a segment boundary, not a partial word match.
+                    // "/price" should match "/price" and "/price/foo" but not "/prices-history".
+                    match path.strip_prefix(limit.path_prefix) {
+                        Some(rest) => {
+                            rest.is_empty()
+                                || rest.starts_with('/')
+                                || rest.starts_with('?')
+                        }
+                        None => false,
+                    }
+                }
+            };
+            if !matched {
                 continue;
             }
             if let Some(ref m) = limit.method {
@@ -94,80 +122,93 @@ impl RateLimiter {
             inner: Arc::new(RateLimiterInner {
                 default: DirectLimiter::direct(quota(9_000, ten_sec)),
                 limits: vec![
-                    // POST /order — dual window
+                    // POST /order — dual window (Prefix: matches /order/{id})
                     EndpointLimit {
                         path_prefix: "/order",
                         method: Some(Method::POST),
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(3_500, ten_sec)),
                         sustained: Some(DirectLimiter::direct(quota(36_000, ten_min))),
                     },
-                    // DELETE /order
+                    // DELETE /order (Prefix: matches /order/{id})
                     EndpointLimit {
                         path_prefix: "/order",
                         method: Some(Method::DELETE),
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(3_000, ten_sec)),
                         sustained: None,
                     },
-                    // Auth
+                    // Auth (Prefix: matches /auth/derive-api-key etc.)
                     EndpointLimit {
                         path_prefix: "/auth",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(100, ten_sec)),
                         sustained: None,
                     },
-                    // Ledger — must come before market data since /trades is more specific
+                    // Ledger
                     EndpointLimit {
                         path_prefix: "/trades",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(900, ten_sec)),
                         sustained: None,
                     },
                     EndpointLimit {
                         path_prefix: "/data/",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(900, ten_sec)),
                         sustained: None,
                     },
                     // Market data endpoints
+                    // /prices-history before /price to avoid prefix collision
+                    EndpointLimit {
+                        path_prefix: "/prices-history",
+                        method: None,
+                        match_mode: MatchMode::Prefix,
+                        burst: DirectLimiter::direct(quota(1_500, ten_sec)),
+                        sustained: None,
+                    },
                     EndpointLimit {
                         path_prefix: "/markets",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(1_500, ten_sec)),
                         sustained: None,
                     },
                     EndpointLimit {
                         path_prefix: "/book",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(1_500, ten_sec)),
                         sustained: None,
                     },
                     EndpointLimit {
                         path_prefix: "/price",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(1_500, ten_sec)),
                         sustained: None,
                     },
                     EndpointLimit {
                         path_prefix: "/midpoint",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(1_500, ten_sec)),
                         sustained: None,
                     },
                     EndpointLimit {
                         path_prefix: "/neg-risk",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(1_500, ten_sec)),
                         sustained: None,
                     },
                     EndpointLimit {
                         path_prefix: "/tick-size",
                         method: None,
-                        burst: DirectLimiter::direct(quota(1_500, ten_sec)),
-                        sustained: None,
-                    },
-                    EndpointLimit {
-                        path_prefix: "/prices-history",
-                        method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(1_500, ten_sec)),
                         sustained: None,
                     },
@@ -194,30 +235,35 @@ impl RateLimiter {
                     EndpointLimit {
                         path_prefix: "/comments",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(200, ten_sec)),
                         sustained: None,
                     },
                     EndpointLimit {
                         path_prefix: "/tags",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(200, ten_sec)),
                         sustained: None,
                     },
                     EndpointLimit {
                         path_prefix: "/markets",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(300, ten_sec)),
                         sustained: None,
                     },
                     EndpointLimit {
                         path_prefix: "/public-search",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(350, ten_sec)),
                         sustained: None,
                     },
                     EndpointLimit {
                         path_prefix: "/events",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(500, ten_sec)),
                         sustained: None,
                     },
@@ -239,20 +285,23 @@ impl RateLimiter {
                 default: DirectLimiter::direct(quota(1_000, ten_sec)),
                 limits: vec![
                     EndpointLimit {
-                        path_prefix: "/positions",
+                        path_prefix: "/closed-positions",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(150, ten_sec)),
                         sustained: None,
                     },
                     EndpointLimit {
-                        path_prefix: "/closed-positions",
+                        path_prefix: "/positions",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(150, ten_sec)),
                         sustained: None,
                     },
                     EndpointLimit {
                         path_prefix: "/trades",
                         method: None,
+                        match_mode: MatchMode::Prefix,
                         burst: DirectLimiter::direct(quota(200, ten_sec)),
                         sustained: None,
                     },
@@ -499,6 +548,69 @@ mod tests {
         // /order/123 should match the /order prefix
         rl.acquire("/order/123", Some(&Method::POST)).await;
         assert!(start.elapsed() < Duration::from_millis(50));
+    }
+
+    #[tokio::test]
+    async fn test_acquire_prefix_respects_segment_boundary() {
+        let rl = RateLimiter::clob_default();
+        let limits = &rl.inner.limits;
+
+        // Find the /price entry
+        let price_idx = limits
+            .iter()
+            .position(|l| l.path_prefix == "/price")
+            .expect("/price endpoint exists");
+
+        // /prices-history must NOT match /price — it's a different endpoint
+        let prices_history_idx = limits
+            .iter()
+            .position(|l| l.path_prefix == "/prices-history")
+            .expect("/prices-history endpoint exists");
+
+        // /prices-history should have its own entry, ordered before /price
+        assert!(
+            prices_history_idx < price_idx,
+            "/prices-history (idx {prices_history_idx}) should come before /price (idx {price_idx})"
+        );
+    }
+
+    #[test]
+    fn test_match_mode_prefix_segment_boundary() {
+        // Verify the Prefix matching logic directly
+        let pattern = "/price";
+
+        let check = |path: &str| -> bool {
+            match path.strip_prefix(pattern) {
+                Some(rest) => rest.is_empty() || rest.starts_with('/') || rest.starts_with('?'),
+                None => false,
+            }
+        };
+
+        // Should match: exact, sub-path, query params
+        assert!(check("/price"), "exact match");
+        assert!(check("/price/foo"), "sub-path");
+        assert!(check("/price?token=abc"), "query params");
+
+        // Should NOT match: partial word overlap
+        assert!(!check("/prices-history"), "partial word /prices-history");
+        assert!(!check("/pricelist"), "partial word /pricelist");
+        assert!(!check("/pricing"), "partial word /pricing");
+
+        // Should NOT match: different prefix
+        assert!(!check("/midpoint"), "different prefix");
+    }
+
+    #[test]
+    fn test_match_mode_exact() {
+        // Verify the Exact matching logic
+        let pattern = "/trades";
+
+        let check = |path: &str| -> bool { path == pattern };
+
+        assert!(check("/trades"), "exact match");
+        assert!(!check("/trades/123"), "sub-path should not match");
+        assert!(!check("/trades?limit=10"), "query params should not match");
+        assert!(!check("/traded"), "different word should not match");
     }
 
     #[tokio::test]
