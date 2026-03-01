@@ -23,7 +23,7 @@ const SAFE_INIT_CODE_HASH: &str =
 
 // From Polymarket Relayer Client
 const PROXY_INIT_CODE_HASH: &str =
-    "0xd21df8dc65880a8606f09fe0ce3df9b8869287ab0b058be05aa9e8af6330a00b";
+    "d21df8dc65880a8606f09fe0ce3df9b8869287ab0b058be05aa9e8af6330a00b";
 
 #[derive(Debug, Clone)]
 pub struct RelayClient {
