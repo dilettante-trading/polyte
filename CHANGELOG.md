@@ -1,3 +1,45 @@
+## [0.10.0] - 2026-03-01
+
+### ⚠️ Breaking Changes
+
+- *(clob)* `WebSocketBuilder::market_url()` and `user_url()` now return `Result<Self, WebSocketError>` to enforce `wss://` scheme validation
+- *(core)* MSRV raised from 1.75 to 1.91 (required by `str::floor_char_boundary`)
+- *(core)* HTTP client now disables redirect following to prevent open redirect attacks
+
+### 🐛 Bug Fixes
+
+- *(relay)* Strip `0x` prefix from `PROXY_INIT_CODE_HASH` to prevent `hex::decode` panic at runtime
+- *(core)* Truncate response bodies in error logs to 512 chars to prevent sensitive data leakage
+- *(clob)* Truncate response bodies in error logs to 512 chars
+- *(relay)* Truncate response bodies in error logs to 512 chars
+- *(core)* Add 10-second connect timeout to HTTP client
+- *(clob)* Enforce `wss://` scheme on WebSocket builder URLs to prevent plaintext connections
+
+### 🔒 Security
+
+- *(clob)* Redact `private_key` in `AccountConfig` `Debug` impl to prevent secret leakage in logs
+- *(relay)* Redact signer key in `BuilderAccount` `Debug` impl, showing only address
+- Harden `.gitignore` to cover `.env.*`, `*.pem`, `*.key`, and `account.json`
+
+### 🧪 Tests
+
+- *(core)* Add tests for prefix collisions, concurrency, and retry edge cases
+- *(core)* Add unit tests for `truncate_for_log` including multibyte boundary handling
+- *(clob)* Add tests for WebSocket URL scheme validation
+- *(clob)* Add test for `AccountConfig` Debug redaction
+- *(relay)* Add test for `BuilderAccount` Debug redaction
+
+### 🔧 CI
+
+- Remove sccache and add lightweight ci profile
+- Consolidate publish steps into retry loop
+- Use cargo-nextest for parallel test execution
+- Merge lint/test jobs and remove redundant release build
+
+### 💅 Style
+
+- Apply cargo fmt across workspace
+
 ## [0.9.2] - 2026-03-01
 
 ### 🚀 Features
